@@ -6,6 +6,11 @@
 #include <ws2tcpip.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <iostream>
+#include <string>
+#include <vector>
+
+#include "utils.h"
 
 //Constantes
 const int TAILLE_MAX_MESSAGES = 200;
@@ -16,7 +21,7 @@ const int TAILLE_MAX_MESSAGES = 200;
 // External functions
 extern DWORD WINAPI recepteur(void* sd_);
 
-// Outils pour terminer le thread de réception
+// Outils pour terminer le thread de rï¿½ception
 HANDLE ghMutex;
 bool neVeutPlusParler;
 
@@ -27,7 +32,6 @@ int __cdecl main(int argc, char **argv)
 	struct addrinfo *result = NULL,
 		*ptr = NULL,
 		hints;
-	char nouvelHost[15];
 	int iResult;
 
 	//--------------------------------------------
@@ -52,50 +56,20 @@ int __cdecl main(int argc, char **argv)
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_INET;        // Famille d'adresses
 	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;  // Protocole utilisé par le serveur
+	hints.ai_protocol = IPPROTO_TCP;  // Protocole utilisï¿½ par le serveur
 
 									  // On indique le nom et le port du serveur auquel on veut se connecter
 									  //char *host = "L4708-XX";
 									  //char *host = "L4708-XX.lerb.polymtl.ca";
 									  //char *host = "add_IP locale";
-	char *host = "132.207.29.101";
-	char *port = "5030";
 
 	//----------------------------
-	char *adresseParfaite;
-	adresseParfaite = "132.207.29.1XY";
-	bool areTheSame = false;
-	while (!areTheSame) {
-		// Demander à l'usager l'addr serveur
-		printf("Saisir l'adresse IP sur laquelle s'exécute le serveur entre 132.207.29.101 et 132.207.29.127 : ");
-		gets_s(nouvelHost);
-		// make sure all char are correct :
-		areTheSame = true;
-		for (int i = 0; i < sizeof(nouvelHost) / sizeof(char); ++i) {
-			if (adresseParfaite[i] - 'X' == 0) {
-				// make sure its between 0 and 2
-				if (!(nouvelHost[i] - '0' >= 0 && nouvelHost[i] - '2' <= 0))
-					areTheSame = false;
-			}
-			else if (adresseParfaite[i] - 'Y' == 0) {
-				// make sure its between 1 and 7
-				if (!(nouvelHost[i] - '1' >= 0 && nouvelHost[i] - '7' <= 0))
-					areTheSame = false;
-			}
-			else {
-				// make sure both adresses are the same
-				if (adresseParfaite[i] != nouvelHost[i])
-					areTheSame = false;
-			}
+	string host;
+	host = getHost("Entrez l'adresse IP du poste sur lequel s'execute le serveur : ");
 
-		}
-	}
+	string port = getPort();
 
-
-	host = nouvelHost;
-
-
-	// getaddrinfo obtient l'adresse IP du host donné
+	// getaddrinfo obtient l'adresse IP du host donnï¿½
 	iResult = getaddrinfo(host, port, &hints, &result);
 	if (iResult != 0) {
 		printf("Erreur de getaddrinfo: %d\n", iResult);
@@ -140,12 +114,12 @@ int __cdecl main(int argc, char **argv)
 	printf("Connecte au serveur %s:%s\n\n", host, port);
 	freeaddrinfo(result);
 
-	// Une fois le client connecté au serveur, on veut faire l'authentification du client
+	// Une fois le client connectï¿½ au serveur, on veut faire l'authentification du client
 	bool estUtilisateurAutorise = true;
-	// switch sur le résultat : 
-	// case accepté : Bienvenue, machin voici les 15 derniers messages! Voici le truc que vous devez entrer si jamais vous voulez arrêter de clavarder.
-	// case créé : Bienvenue machin, nouvel utilisateur blahblahblah voici les 15 derniers messages! Voici le truc que vous devez entrer si jamais vous voulez arrêter de clavarder.
-	// case refusé :  Erreur dans la saisie du mot de passe; estUtilisateurAutorise = false;
+	// switch sur le rï¿½sultat : 
+	// case acceptï¿½ : Bienvenue, machin voici les 15 derniers messages! Voici le truc que vous devez entrer si jamais vous voulez arrï¿½ter de clavarder.
+	// case crï¿½ï¿½ : Bienvenue machin, nouvel utilisateur blahblahblah voici les 15 derniers messages! Voici le truc que vous devez entrer si jamais vous voulez arrï¿½ter de clavarder.
+	// case refusï¿½ :  Erreur dans la saisie du mot de passe; estUtilisateurAutorise = false;
 
 
 	if(estUtilisateurAutorise){
@@ -166,7 +140,7 @@ int __cdecl main(int argc, char **argv)
 		}
 
 		//-----------------------------
-		// Le thread principal sert maintenant à envoyer des messages
+		// Le thread principal sert maintenant ï¿½ envoyer des messages
 		while (true) {
 			//----------------------------
 			// Attend que l'usager envoie un message
@@ -184,7 +158,7 @@ int __cdecl main(int argc, char **argv)
 				WSACleanup();
 				printf("Appuyez une touche pour finir\n");
 				getchar();
-				// Arrêter le thread de la réception suite à l'erreur.
+				// Arrï¿½ter le thread de la rï¿½ception suite ï¿½ l'erreur.
 				WaitForSingleObject(ghMutex, INFINITE);
 				neVeutPlusParler = true;
 				ReleaseMutex(ghMutex);
@@ -195,14 +169,14 @@ int __cdecl main(int argc, char **argv)
 
 			printf("Nombre d'octets envoyes : %ld\n", iResult);
 		}
-		// Arrêter le thread de la réception suite à la déconnexion sécuritaire.
+		// Arrï¿½ter le thread de la rï¿½ception suite ï¿½ la dï¿½connexion sï¿½curitaire.
 		WaitForSingleObject(ghMutex, INFINITE);
 		neVeutPlusParler = true;
 		ReleaseMutex(ghMutex);
 		WaitForSingleObject(recepteur_th, INFINITE);
 
 	}
-	// Nettoyage; le client a été refusé ou le client s'est déconnecté de façon sécuritaire.
+	// Nettoyage; le client a ï¿½tï¿½ refusï¿½ ou le client s'est dï¿½connectï¿½ de faï¿½on sï¿½curitaire.
 	closesocket(leSocket);
 	WSACleanup();
 
@@ -212,7 +186,7 @@ int __cdecl main(int argc, char **argv)
 }
 
 //// recepteur ///////////////////////////////////////////////////////
-// Thread qui est en charge de recevoir les messages du serveur une fois l'authentification résolue.
+// Thread qui est en charge de recevoir les messages du serveur une fois l'authentification rï¿½solue.
 
 DWORD WINAPI recepteur(void* sd_)
 {
