@@ -1,73 +1,64 @@
-#undef UNICODE
+﻿//#undef UNICODE
 
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
-
-#include <winsock2.h>
-#include <ws2tcpip.h>
+#include <iostream>
 #include <stdlib.h>
 #include <stdio.h>
-#include <iostream>
 #include <string>
 #include <vector>
 
-#include "utils.h"
+#include "ConnectionInfos.h"
 
-//Constantes
-const int TAILLE_MAX_MESSAGES = 200;
+using namespace std;
 
-// Link avec ws2_32.lib
-#pragma comment(lib, "ws2_32.lib")
-
-// External functions
-extern DWORD WINAPI recepteur(void* sd_);
-
-// Outils pour terminer le thread de r�ception
-HANDLE ghMutex;
-bool neVeutPlusParler;
 
 int __cdecl main(int argc, char **argv)
 {
-	WSADATA wsaData;
-	SOCKET leSocket;// = INVALID_SOCKET;
-	struct addrinfo *result = NULL,
-		*ptr = NULL,
-		hints;
-	int iResult;
+	string host, port;
+	ConnectionInfos infos;
 
-	//--------------------------------------------
-	// InitialisATION de Winsock
-	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (iResult != 0) {
-		printf("Erreur de WSAStartup: %d\n", iResult);
-		return 1;
-	}
-	// On va creer le socket pour communiquer avec le serveur
-	leSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (leSocket == INVALID_SOCKET) {
-		printf("Erreur de socket(): %ld\n\n", WSAGetLastError());
-		freeaddrinfo(result);
-		WSACleanup();
-		printf("Appuyez une touche pour finir\n");
-		getchar();
-		return 1;
-	}
-	//--------------------------------------------
-	// On va chercher l'adresse du serveur en utilisant la fonction getaddrinfo.
-	ZeroMemory(&hints, sizeof(hints));
-	hints.ai_family = AF_INET;        // Famille d'adresses
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;  // Protocole utilis� par le serveur
+	infos.setHost("Entrez l'adresse IP du poste sur lequel s'execute le serveur : ");
+	infos.setPort();
 
-									  // On indique le nom et le port du serveur auquel on veut se connecter
-									  //char *host = "L4708-XX";
-									  //char *host = "L4708-XX.lerb.polymtl.ca";
-									  //char *host = "add_IP locale";
+	host = infos.getHost();
+	port = infos.getPort();
 
+	cout << host << endl;
+	cout << port << endl;
+
+	/*
 	//----------------------------
-	string host;
-	host = getHost("Entrez l'adresse IP du poste sur lequel s'execute le serveur : ");
+	char *adresseParfaite;
+	adresseParfaite = "132.207.29.1XY";
+	bool areTheSame = false;
+	while (!areTheSame) {
+		// Demander � l'usager l'addr serveur
+		printf("Saisir l'adresse IP sur laquelle s'ex�cute le serveur entre 132.207.29.101 et 132.207.29.127 : ");
+		gets_s(nouvelHost);
+		// make sure all char are correct :
+		areTheSame = true;
+		for (int i = 0; i < sizeof(nouvelHost) / sizeof(char); ++i) {
+			if (adresseParfaite[i] - 'X' == 0) {
+				// make sure its between 0 and 2
+				if (!(nouvelHost[i] - '0' >= 0 && nouvelHost[i] - '2' <= 0))
+					areTheSame = false;
+			}
+			else if (adresseParfaite[i] - 'Y' == 0) {
+				// make sure its between 1 and 7
+				if (!(nouvelHost[i] - '1' >= 0 && nouvelHost[i] - '7' <= 0))
+					areTheSame = false;
+			}
+			else {
+				// make sure both adresses are the same
+				if (adresseParfaite[i] != nouvelHost[i])
+					areTheSame = false;
+			}
 
-	string port = getPort();
+		}
+	}
+
+
+	host = nouvelHost;
+
 
 	// getaddrinfo obtient l'adresse IP du host donn�
 	iResult = getaddrinfo(host, port, &hints, &result);
@@ -114,102 +105,45 @@ int __cdecl main(int argc, char **argv)
 	printf("Connecte au serveur %s:%s\n\n", host, port);
 	freeaddrinfo(result);
 
-	// Une fois le client connect� au serveur, on veut faire l'authentification du client
-	bool estUtilisateurAutorise = true;
-	// switch sur le r�sultat : 
-	// case accept� : Bienvenue, machin voici les 15 derniers messages! Voici le truc que vous devez entrer si jamais vous voulez arr�ter de clavarder.
-	// case cr�� : Bienvenue machin, nouvel utilisateur blahblahblah voici les 15 derniers messages! Voici le truc que vous devez entrer si jamais vous voulez arr�ter de clavarder.
-	// case refus� :  Erreur dans la saisie du mot de passe; estUtilisateurAutorise = false;
+	//----------------------------
+	// Demander � l'usager un mot a envoyer au serveur
+	printf("Saisir un mot de 7 lettres pour envoyer au serveur: ");
+	gets_s(motEnvoye);
 
+	//-----------------------------
+	// Envoyer le mot au serveur
+	iResult = send(leSocket, motEnvoye, 7, 0);
+	if (iResult == SOCKET_ERROR) {
+		printf("Erreur du send: %d\n", WSAGetLastError());
+		closesocket(leSocket);
+		WSACleanup();
+		printf("Appuyez une touche pour finir\n");
+		getchar();
 
-	if(estUtilisateurAutorise){
-		//------------------------------
-		// Un thread est maintenant en charge de recevoir l'information tandis qu'on en envoie selon nos envies.
-		DWORD nThreadID;
-		HANDLE recepteur_th = CreateThread(0, 0, recepteur, (void*)leSocket, 0, &nThreadID);
-		if (recepteur_th == NULL)
-		{
-			printf("CreateThread error: %d\n", GetLastError());
-			return 1;
-		}
-		ghMutex = CreateMutex(NULL, FALSE, NULL);
-		if (ghMutex == NULL)
-		{
-			printf("CreateMutex error: %d\n", GetLastError());
-			return 1;
-		}
-
-		//-----------------------------
-		// Le thread principal sert maintenant � envoyer des messages
-		while (true) {
-			//----------------------------
-			// Attend que l'usager envoie un message
-			char motEnvoye[TAILLE_MAX_MESSAGES];
-			motEnvoye[0] = 0;
-			printf("Saisir un message : ");
-			gets_s(motEnvoye);
-
-			//-----------------------------
-			// Envoyer le message au serveur
-			iResult = send(leSocket, motEnvoye, TAILLE_MAX_MESSAGES, 0);
-			if (iResult == SOCKET_ERROR) {
-				printf("Erreur; le serveur n'est probablement plus disponible. Code : %d\n", WSAGetLastError());
-				closesocket(leSocket);
-				WSACleanup();
-				printf("Appuyez une touche pour finir\n");
-				getchar();
-				// Arr�ter le thread de la r�ception suite � l'erreur.
-				WaitForSingleObject(ghMutex, INFINITE);
-				neVeutPlusParler = true;
-				ReleaseMutex(ghMutex);
-				WaitForSingleObject(recepteur_th, INFINITE);
-
-				return 1;
-			}
-
-			printf("Nombre d'octets envoyes : %ld\n", iResult);
-		}
-		// Arr�ter le thread de la r�ception suite � la d�connexion s�curitaire.
-		WaitForSingleObject(ghMutex, INFINITE);
-		neVeutPlusParler = true;
-		ReleaseMutex(ghMutex);
-		WaitForSingleObject(recepteur_th, INFINITE);
-
+		return 1;
 	}
-	// Nettoyage; le client a �t� refus� ou le client s'est d�connect� de fa�on s�curitaire.
+
+	printf("Nombre d'octets envoyes : %ld\n", iResult);
+
+	//------------------------------
+	// Maintenant, on va recevoir l' information envoy�e par le serveur
+	iResult = recv(leSocket, motRecu, 7, 0);
+	if (iResult > 0) {
+		printf("Nombre d'octets recus: %d\n", iResult);
+		motRecu[iResult] = '\0';
+		printf("Le mot recu est %*s\n", iResult, motRecu);
+	}
+	else {
+		printf("Erreur de reception : %d\n", WSAGetLastError());
+	}
+
+	// cleanup
 	closesocket(leSocket);
 	WSACleanup();
 
 	printf("Appuyez une touche pour finir\n");
 	getchar();
-	return 0;
-}
-
-//// recepteur ///////////////////////////////////////////////////////
-// Thread qui est en charge de recevoir les messages du serveur une fois l'authentification r�solue.
-
-DWORD WINAPI recepteur(void* sd_)
-{
-	SOCKET sd = (SOCKET)sd_;
-
-	while (true)
-	{
-		char motRecu[TAILLE_MAX_MESSAGES + 1];
-		motRecu[0] = 0;
-		int iResult = recv(sd, motRecu, TAILLE_MAX_MESSAGES, 0);
-		if (iResult > 0) {
-			printf("Nombre d'octets recus: %d\n", iResult);
-			motRecu[iResult] = '\0';
-			printf("Le mot recu est %*s\n", iResult, motRecu);
-		}
-		else {
-			printf("Erreur de reception : %d\n", WSAGetLastError());
-		}
-		WaitForSingleObject(ghMutex, INFINITE);
-		if (neVeutPlusParler)
-			ExitThread(0);
-		ReleaseMutex(ghMutex);
-	}
-
+	*/
+	system("pause");
 	return 0;
 }
