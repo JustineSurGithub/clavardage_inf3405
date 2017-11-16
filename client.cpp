@@ -22,42 +22,18 @@ int __cdecl main(int argc, char **argv)
 	host = infos.getHost();
 	port = infos.getPort();
 
-	cout << host << endl;
-	cout << port << endl;
+	// Conversion en char*
+	char hostBuffer[16];
+	char portBuffer[5];
+
+	infos.getHostChar(hostBuffer);
+	infos.getPortChar(portBuffer);
+
+	// TODO: enlever ceci
+	cout << hostBuffer << endl;
+	cout << portBuffer << endl;
 
 	/*
-	//----------------------------
-	char *adresseParfaite;
-	adresseParfaite = "132.207.29.1XY";
-	bool areTheSame = false;
-	while (!areTheSame) {
-		// Demander � l'usager l'addr serveur
-		printf("Saisir l'adresse IP sur laquelle s'ex�cute le serveur entre 132.207.29.101 et 132.207.29.127 : ");
-		gets_s(nouvelHost);
-		// make sure all char are correct :
-		areTheSame = true;
-		for (int i = 0; i < sizeof(nouvelHost) / sizeof(char); ++i) {
-			if (adresseParfaite[i] - 'X' == 0) {
-				// make sure its between 0 and 2
-				if (!(nouvelHost[i] - '0' >= 0 && nouvelHost[i] - '2' <= 0))
-					areTheSame = false;
-			}
-			else if (adresseParfaite[i] - 'Y' == 0) {
-				// make sure its between 1 and 7
-				if (!(nouvelHost[i] - '1' >= 0 && nouvelHost[i] - '7' <= 0))
-					areTheSame = false;
-			}
-			else {
-				// make sure both adresses are the same
-				if (adresseParfaite[i] != nouvelHost[i])
-					areTheSame = false;
-			}
-
-		}
-	}
-
-
-	host = nouvelHost;
 
 
 	// getaddrinfo obtient l'adresse IP du host donn�

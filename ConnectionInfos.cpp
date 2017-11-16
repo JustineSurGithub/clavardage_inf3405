@@ -1,3 +1,5 @@
+#pragma warning(disable:4996) // warnings when using std::string::copy
+
 #include "ConnectionInfos.h"
 
 const int ConnectionInfos::NUM_PERIODS = 3;
@@ -13,6 +15,8 @@ ConnectionInfos::~ConnectionInfos() {}
 
 /**
 * Lecture de l'adresse IP avec verifications.
+*
+* \param prompt string d'entree.
 */
 void ConnectionInfos::setHost(const string& prompt) {
 	string h;
@@ -117,8 +121,30 @@ string ConnectionInfos::getPort() {
 }
 
 /**
+* Accesseur pour le host qui le copie dans un char*.
+*
+* \param buff pointeur vers le buffer dans lequel copier le host.
+*/
+void ConnectionInfos::getHostChar(char* buff) {
+	size_t lengthHost = host_.copy(buff, host_.length());
+	buff[lengthHost] = '\0';
+}
+
+/**
+* Accesseur pour le port qui le copie dans un char*.
+*
+* \param buff pointeur vers le buffer dans lequel copier le port.
+*/
+void ConnectionInfos::getPortChar(char* buff) {
+	size_t lengthPort = port_.copy(buff, port_.length());
+	buff[lengthPort] = '\0';
+}
+
+/**
 * Divise un string en differents sous-strings selon un delimiteur.
 *
+* \param str string a diviser.
+* \param delim delimiteur.
 * \return vecteur resultant.
 */
 vector<string> ConnectionInfos::split(const string& str, const string& delim) {

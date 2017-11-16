@@ -20,6 +20,9 @@ public:
 	string getHost();
 	string getPort();
 
+	void getHostChar(char* buff);
+	void getPortChar(char* buff);
+
 	static const int NUM_PERIODS;
 	static const int NUM_BYTES;
 	static const int BYTE_MAX_VALUE;
