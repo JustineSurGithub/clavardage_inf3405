@@ -2,6 +2,9 @@
 
 DataBase::DataBase()
 {
+	msgDb_.push_back("THIS IS A MESSAGE");
+	msgDb_.push_back("THIS IS ANOTHER MESSAGE");
+	msgDb_.push_back("THIS IS A THIRD MESSAGE");
 }
 
 DataBase::~DataBase()
@@ -50,11 +53,15 @@ void DataBase::createUser(const string& username, const string& password) {
 */
 vector<string> DataBase::getMessageHistory() {
 	vector<string> msgHistory;
-
+	
 	// TEST
-	msgHistory.push_back("THIS IS A MESSAGE");
-	msgHistory.push_back("THIS IS ANOTHER MESSAGE");
-	msgHistory.push_back("THIS IS A THIRD MESSAGE");
+	auto it = msgDb_.begin();
+	int adv = (msgDb_.size() < MESSAGE_HISTORY_MAX) ? 0 : msgDb_.size() - MESSAGE_HISTORY_MAX;
+	advance(it, adv);
+	while (it != msgDb_.end()) {
+		msgHistory.push_back(*it);
+		++it;
+	}
 
 	return msgHistory;
 }
@@ -67,4 +74,8 @@ vector<string> DataBase::getMessageHistory() {
 void DataBase::addMessage(char* msg) {
 	string msg_str(msg);
 	// acces avec mutex; enregistrement de la donnee dans bd. Donne un id a la donnee qui est 1 de plus que le precedent.
+
+	cout << "Adding msg to DB : " << msg_str << endl;
+	// TEST
+	msgDb_.push_back(msg_str);
 }

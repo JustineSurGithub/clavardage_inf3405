@@ -94,12 +94,12 @@ void Communications::createMessageHistoryAmountMsg(int numberOfMsg, char* msg) {
 /** TODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
 * Creation d'un echo de message de chat (fait par un autre utilisateur).
 *
-* \param .
+* \param header le header avec les informations.
+* \param contenu le contenu du message.
 * \param msg pointeur vers le message a creer.
 */
-void Communications::createChatMsgEcho(char* msg) {
-	string txt;
-	createMsg(TypeMessage::MESSAGE_ECHO, txt, msg);
+void Communications::createChatMsgEcho(string& header, string& contenu, char* msg) {
+	createMsg(TypeMessage::MESSAGE_ECHO, header+ contenu, msg);
 }
 
 /**
@@ -111,6 +111,29 @@ void Communications::createChatMsgEcho(char* msg) {
 void Communications::createChatMsg(string& txt, char* msg) {
 	createMsg(TypeMessage::MESSAGE, txt, msg);
 }
+
+/**
+* Extraction du contenu d'un message recu d'un client.
+*
+* \param msg pointeur vers le message provenant du client.
+* \return contenu.
+*/
+string Communications::getContentFromChatMsg(char* msg) {
+	++msg;
+	return string(msg);
+}
+
+/**
+* Extraction du contenu d'un message d'echo recu du serveur.
+*
+* \param msg pointeur vers le message provenant du client.
+* \return contenu.
+*/
+string Communications::getEchoFromMsg(char* msg) {
+	++msg;
+	return string(msg);
+}
+
 
 /**
 * Extraction du type d'un message.
@@ -175,8 +198,6 @@ int Communications::getMessageHistoryAmount(char* msg) {
 	number += msg[2];
 	return stoi(number);
 }
-
-
 
 /**
 * Copie d'un string dans un tableau de char.

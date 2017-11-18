@@ -2,8 +2,11 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
 
 using namespace std;
+
+static const int MESSAGE_HISTORY_MAX = 15;
 
 class DataBase
 {
@@ -20,6 +23,7 @@ public:
 	void addMessage(char* msg);
 
 private:
-
+	// TEST
+	vector<string> msgDb_;
 
 };

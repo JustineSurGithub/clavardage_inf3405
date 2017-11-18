@@ -39,7 +39,7 @@ public:
 	void createAuthentificationRequestMsg(string& user, string& pass, char* msg);
 	void createAuthentificationReplyMsg(bool isAccepted, char* msg);
 	void createMessageHistoryAmountMsg(int numberOfMsg, char* msg);
-	void createChatMsgEcho(char* msg);
+	void createChatMsgEcho(string& header, string& contenu, char* msg);
 	void createChatMsg(string& txt, char* msg);
 
 	TypeMessage getTypeFromMsg(char* msg);
@@ -47,6 +47,9 @@ public:
 	bool getAuthentificationInfoFromRequest(char* msg, string* user, string* pass);
 	bool getAuthentificationReplyResult(char* msg);
 	int getMessageHistoryAmount(char* msg);
+
+	string getContentFromChatMsg(char* msg);
+	string getEchoFromMsg(char* msg);
 
 private:
 	void stringToCharPointer(string& str, char* chr);

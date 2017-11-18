@@ -180,7 +180,8 @@ int __cdecl main(int argc, char **argv)
 		
 		bool authSuccessful = comm.getAuthentificationReplyResult(authReply);
 		if (!authSuccessful) {
-			cout << "Erreur dans la saisie du mot de passe." << endl;
+			cout << "Erreur dans la saisie du mot de passe." << endl << "Appuyez sur une touche pour quitter." << endl;
+			getchar();
 			endConnection();
 			return 1;
 		} else {

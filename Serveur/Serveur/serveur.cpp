@@ -8,6 +8,7 @@
 #include <strstream>
 #include <vector>
 #include <map>
+#include <ctime>
 
 #include "ConnectionInfos.h"
 #include "Communications.h"
@@ -22,6 +23,12 @@ enum AuthentificationRep
 	Acceptation,
 	Creation,
 	Refus,
+};
+
+struct UserInfo {
+	string username;
+	string ip;
+	string port;
 };
 
 // link with Ws2_32.lib
@@ -43,7 +50,7 @@ vector<SOCKET> sockets;
 HANDLE socket_mutex;
 
 //Map des pseudos associ�s aux sockets
-map<SOCKET, char *> pseudonymes;
+map<SOCKET, UserInfo*> pseudonymes;
 HANDLE pseudo_mutex;
 
 // Communications
@@ -161,6 +168,32 @@ const char* WSAGetLastErrorMessage(const char* pcMessagePrefix, int nErrorID = 0
 	return acErrorBuffer;
 }
 
+void getTime(tm* tim) {
+	time_t t = time(0);
+	localtime_s(tim, &t);
+}
+
+void formatDateTime(tm* timeInfo, string* date, string* time) {
+	char buf[3];
+
+	*date += to_string(timeInfo->tm_year + 1900);
+	*date += "-";
+	sprintf_s(buf, "%02d", (timeInfo->tm_mon + 1));
+	*date += string(buf);
+	*date += "-";
+	sprintf_s(buf, "%02d", (timeInfo->tm_mday));
+	*date += string(buf);
+
+	sprintf_s(buf, "%02d", (timeInfo->tm_hour));
+	*time += string(buf);
+	*time += ":";
+	sprintf_s(buf, "%02d", (timeInfo->tm_min));
+	*time += string(buf);
+	*time += ":";
+	sprintf_s(buf, "%02d", (timeInfo->tm_sec));
+	*time += string(buf);
+}
+
 int main(void)
 {
 	SetConsoleTitle("Serveur de clavardage");
@@ -172,7 +205,7 @@ int main(void)
 	infos.setPort();
 
 	char host[ConnectionInfos::HOST_BUFFER_LENGTH];
-	int* port = new int(0);
+	int* port = new int(0); // delete port;
 
 	infos.getHostChar(host);
 	infos.getPortInt(port);
@@ -243,7 +276,6 @@ int main(void)
 	pseudo_mutex = CreateMutex(NULL, FALSE, NULL);
 
 	while (true) {
-
 		sockaddr_in sinRemote;
 		int nAddrSize = sizeof(sinRemote);
 		// Create a SOCKET for accepting incoming requests.
@@ -251,9 +283,9 @@ int main(void)
 		SOCKET sd = accept(ServerSocket, (sockaddr*)&sinRemote, &nAddrSize);
 		if (sd != INVALID_SOCKET) {
 			cout << "Connection acceptee De : " <<
-				inet_ntoa(sinRemote.sin_addr) << ":" <<
-				ntohs(sinRemote.sin_port) << "." <<
-				endl;
+					inet_ntoa(sinRemote.sin_addr) << ":" <<
+					ntohs(sinRemote.sin_port) << "." <<
+					endl;
 			AuthentificationRep resultat = Authentifier(sd);
 			if (resultat == AuthentificationRep::Acceptation || resultat == AuthentificationRep::Creation)
 			{
@@ -264,8 +296,7 @@ int main(void)
 				CreateThread(0, 0, EchoHandler, (void*)sd, 0, &nThreadID);
 			}
 			else {
-
-				closesocket(sd); // Ce client a �t� refus� � l'authentification.
+				closesocket(sd); // Ce client a ete refuse e l'authentification.
 			}
 		}
 		else {
@@ -283,6 +314,7 @@ int main(void)
 DWORD WINAPI EchoHandler(void* sd_)
 {
 	SOCKET sd = (SOCKET)sd_;
+	UserInfo* usr = pseudonymes[sd];
 
 	while (true)
 	{
@@ -292,12 +324,25 @@ DWORD WINAPI EchoHandler(void* sd_)
 
 		readBytes = recv(sd, readBuffer, TAILLE_MAX_MESSAGES, 0);
 		if (readBytes > 0) {
-			cout << "Received " << readBytes << " bytes from client." << endl;
-			cout << "Received " << readBuffer << " from client." << endl;
-			char * beauFormat = creerFormatMessage(readBuffer);
-			db.addMessage(beauFormat);
-			diffuser(readBuffer);
-			//diffuser(beauFormat);
+			//cout << "Received " << readBytes << " bytes from client." << endl;
+			//cout << "Received " << readBuffer << " from client." << endl;
+
+			// Get date and time
+			tm* timeS = new tm;
+			getTime(timeS);
+			string* date = new string; // delete date;
+			string* time = new string; // delete time;
+			formatDateTime(timeS, date, time);
+
+			// Format message with header
+			char msgFormatte[TAILLE_MAX_MESSAGES];
+			string header = comm.createChatMsgInfoHeader(usr->username, usr->ip, usr->port, *date, *time);
+			string contenu = comm.getContentFromChatMsg(readBuffer);
+			comm.createChatMsgEcho(header, contenu, msgFormatte);
+			
+			// Add to DB and broadcast
+			db.addMessage(&comm.getEchoFromMsg(msgFormatte)[0]);
+			diffuser(msgFormatte);
 		}
 		else if (readBytes == SOCKET_ERROR) {
 			cout << WSAGetLastErrorMessage("Echec de la reception !") << endl;
@@ -306,7 +351,7 @@ DWORD WINAPI EchoHandler(void* sd_)
 		}
 	}
 	// Le serveur publie sur sa console la d�connexion.
-	cout << "Le client " << sd << " s'est d�connect�." << endl;
+	cout << "Le client " << sd << " s'est deconnecte." << endl;
 	closesocket(sd);
 
 	return 0;
@@ -361,8 +406,18 @@ AuthentificationRep Authentifier(SOCKET sd)
 	}
 
 	// On met le pseudonyme dans la map des pseudos (acces avec mutex).
+	sockaddr_in client_info = { 0 };
+	int addrsize = sizeof(client_info);
+	// or get it from the socket itself at any time
+	getpeername(sd, (sockaddr*)&client_info, &addrsize);
+	
+	UserInfo* usr = new UserInfo;
+	usr->username = *pseudo;
+	usr->ip = string(inet_ntoa(client_info.sin_addr));
+	usr->port = string(to_string(ntohs(client_info.sin_port)));
+
 	WaitForSingleObject(pseudo_mutex, INFINITE);
-	pseudonymes.insert(pair<SOCKET, char *>(sd, &(*pseudo)[0u]));
+	pseudonymes.insert(pair<SOCKET, UserInfo*>(sd, usr));
 	ReleaseMutex(pseudo_mutex);
 
 	// Creation du message de reponse
