@@ -196,7 +196,7 @@ int __cdecl main(int argc, char **argv)
 	char msgHistoryAmount[TAILLE_MAX_MESSAGES];
 	iResult = recv(leSocket, msgHistoryAmount, TAILLE_MAX_MESSAGES, 0);
 	if (iResult > 0) {
-		msgHistoryAmount[iResult] = '\0';
+		msgHistoryAmount[iResult-1] = '\0';
 
 		nombreMsgHistoriques = comm.getMessageHistoryAmount(msgHistoryAmount);
 		if (nombreMsgHistoriques < 0) {
@@ -214,7 +214,7 @@ int __cdecl main(int argc, char **argv)
 		char msgHistory[TAILLE_MAX_MESSAGES];
 		iResult = recv(leSocket, msgHistory, TAILLE_MAX_MESSAGES, 0);
 		if (iResult > 0) {
-			msgHistory[iResult] = '\0';
+			msgHistory[iResult-1] = '\0';
 			// TODO: extract info/should messages directly contain headers+message content?
 			cout << msgHistory << endl;
 		}
@@ -225,6 +225,7 @@ int __cdecl main(int argc, char **argv)
 
 	// TODO: take care of threads for receiving and sending at the same time
 	// Lecture et envoit de messages a volonte
+	cout << "Entrez votre message a envoyer : " << endl;
 	string chatMsg = comm.inputChatMessage();
 	while (!chatMsg.empty()) {
 		char msg[TAILLE_MAX_MESSAGES];

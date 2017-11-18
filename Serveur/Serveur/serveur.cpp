@@ -11,6 +11,7 @@
 
 #include "ConnectionInfos.h"
 #include "Communications.h"
+#include "DataBase.h"
 
 //Constantes
 //const int TAILLE_MAX_MESSAGES = 200;
@@ -30,12 +31,12 @@ using namespace std;
 
 
 // External functions
-extern DWORD WINAPI EchoHandler(void* sd_);
-extern void diffuser(char *msg);
-extern void envoyer(char* msg, SOCKET sd);
-extern void enregistrer(char *msg);
-extern char * creerFormatMessage(char *msg);
-extern AuthentificationRep Authentifier(SOCKET sd);
+DWORD WINAPI EchoHandler(void* sd_);
+void diffuser(char *msg);
+void envoyer(char* msg, SOCKET sd);
+void enregistrer(char *msg);
+char * creerFormatMessage(char *msg);
+AuthentificationRep Authentifier(SOCKET sd);
 
 //Vecteur des sockets qui tient lieu de �chatroom�
 vector<SOCKET> sockets;
@@ -47,6 +48,7 @@ HANDLE pseudo_mutex;
 
 // Communications
 Communications comm;
+DataBase db;
 
 // List of Winsock error constants mapped to an interpretation string.
 // Note that this list must remain sorted by the error constants'
@@ -238,6 +240,7 @@ int main(void)
 
 	//Cr�er les mutex puisqu'on aura s�rement plusieurs clients
 	socket_mutex = CreateMutex(NULL, FALSE, NULL);
+	pseudo_mutex = CreateMutex(NULL, FALSE, NULL);
 
 	while (true) {
 
@@ -292,7 +295,7 @@ DWORD WINAPI EchoHandler(void* sd_)
 			cout << "Received " << readBytes << " bytes from client." << endl;
 			cout << "Received " << readBuffer << " from client." << endl;
 			char * beauFormat = creerFormatMessage(readBuffer);
-			enregistrer(beauFormat);
+			db.addMessage(beauFormat);
 			diffuser(readBuffer);
 			//diffuser(beauFormat);
 		}
@@ -325,42 +328,42 @@ AuthentificationRep Authentifier(SOCKET sd)
 	{
 		cout << "Received " << readBytes << " bytes from client." << endl;
 		cout << "Received " << readBuffer << " from client." << endl;
+	} else {
+		rep = AuthentificationRep::Refus;
+		return rep;
+	}
 
-		if (!comm.getAuthentificationInfoFromRequest(readBuffer, pseudo, motPasse)) {
-			// Error
-		}
+	// Extraction des informations d'authentification
+	if (!comm.getAuthentificationInfoFromRequest(readBuffer, pseudo, motPasse)) {
+		// Error
+	}
 
-		// V�rifie dans la bd si le pseudonyme et le mot de passe sont corrects; d�termine le type de retour.
-		bool isValidUserInfo = true;
-
-		// Si le type est cr�ation on ajoute � la bd (acces sans mutex, table des pseudos). On envoie un message de confirmation de cr�ation de compte.
-
-		// Si le type est acceptation ou cr�ation on met le pseudonyme dans la map des pseudos (acces avec mutex) et on envoie les 15 derniers messages (acces avec mutex).
-		// On envoie aussi un message de bienvenue � l'usager et on diffuse un message de notification aux autres pour la connexion de la nouvelle personne.
-
+	// Verifie dans la bd si le pseudonyme et le mot de passe sont corrects; d�termine le type de retour.
+	bool userExists = db.isExistingUser(*motPasse);
+	if (userExists) {
+		// Utilisateur existe, verification du mot de passe
+		bool isValidUserInfo = db.isValidPassword(*pseudo, *motPasse);
 		if (isValidUserInfo) {
+			// Mot de passe valide
 			rep = AuthentificationRep::Acceptation;
-			// ou AuthentificationRep::Creation
-		}
-		else {
-			// Si le type est refus on envoie un message de refus.
+		} else {
+			// Mot de passe invalide
 			rep = AuthentificationRep::Refus;
 		}
+	}
+	else {
+		rep = AuthentificationRep::Creation;
+	}
 
-		/*
-		for (unsigned int i = 0; i < readBytes; i++)
-		{
-			while (readBuffer[i] != secante)
-			{
-				//pseudo  RENDUE L�
-			}
-		}
-		*/
+	// Si le type est cr�ation on ajoute � la bd (acces sans mutex, table des pseudos). On envoie un message de confirmation de cr�ation de compte.
+	if (rep == AuthentificationRep::Creation) {
+		db.createUser(*pseudo, *motPasse);
 	}
-	else
-	{
-		rep = AuthentificationRep::Refus;
-	}
+
+	// On met le pseudonyme dans la map des pseudos (acces avec mutex).
+	WaitForSingleObject(pseudo_mutex, INFINITE);
+	pseudonymes.insert(pair<SOCKET, char *>(sd, &(*pseudo)[0u]));
+	ReleaseMutex(pseudo_mutex);
 
 	// Creation du message de reponse
 	char authReplyMsg[TAILLE_MAX_MESSAGES];
@@ -369,25 +372,36 @@ AuthentificationRep Authentifier(SOCKET sd)
 	// Envoit du message de reponse
 	envoyer(authReplyMsg, sd);
 
+	// On envoie le nombre de messages dans l'historique.
+	vector<string> msgHist = db.getMessageHistory();
+	int nbMsgHist = msgHist.size();
+
+	char histNbMsg[TAILLE_MAX_MESSAGES];
+	comm.createMessageHistoryAmountMsg(nbMsgHist, histNbMsg);
+
+	envoyer(histNbMsg, sd);
+
+	// On envoie les <=15 derniers messages (acces avec mutex).
+	auto it = msgHist.begin();
+	while (it != msgHist.end()) {
+		envoyer(&(*it)[0u], sd);
+		++it;
+	}
+
+	// TODO: On envoie aussi un message de bienvenue � l'usager et on diffuse un message de notification aux autres pour la connexion de la nouvelle personne.
+
 	// Retourner le type de retour.
 	return rep;
 }
 
 // Enjoliver le message en rajoutant les informations obligatoires comme le nom d'utilisateur
-char * creerFormatMessage(char *msg)
+char* creerFormatMessage(char *msg)
 {
 	// Formater selon nom d'utilisateur et adresse ip (getpeername), date, heure puis message. Retourner.
 
 
 	// TODO: enlever ceci (permet la compilation)
 	return new char;
-}
-
-
-// Mettre l'information dans la base de donn�es
-void enregistrer(char *msg)
-{
-	// acc�s avec mutex; enregistrement de la donn�e dans bd. Donne un id � la donn�e qui est 1 de plus que le pr�c�dent.
 }
 
 
