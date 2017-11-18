@@ -44,6 +44,7 @@ public:
 
 	TypeMessage getTypeFromMsg(char* msg);
 
+	bool getAuthentificationInfoFromRequest(char* msg, string* user, string* pass);
 	bool getAuthentificationReplyResult(char* msg);
 	int getMessageHistoryAmount(char* msg);
 

@@ -124,6 +124,34 @@ Communications::TypeMessage Communications::getTypeFromMsg(char* msg) {
 }
 
 /**
+* Extraction du nom d'utilisateur et du mot de passe d'un message de requete d'authentification.
+*
+* \param user pointeur vers le string dans lequel mettre le nom d'utilisateur.
+* \param pass pointeur vers le string dans lequel mettre le password.
+* \param msg pointeur vers le message a analyser.
+* \return succes de l'extraction.
+*/
+bool Communications::getAuthentificationInfoFromRequest(char* msg, string* user, string* pass) {
+	bool res = true;
+	string msg_str(msg);
+
+	if ((TypeMessage)msg_str[0] == TypeMessage::AUTHENTIFICATION_REQUEST) {
+		size_t sep_pos = msg_str.find((char)TypeMessage::PASSWORD_SEPARATOR);
+		if (sep_pos != string::npos) {
+			*user = msg_str.substr(1, sep_pos - 1);
+			*pass = msg_str.substr(sep_pos + 1, string::npos);
+		} else {
+			res = false;
+		}
+	} else {
+		// Not a valid authentification request message
+		res = false;
+	}
+
+	return res;
+}
+
+/**
 * Extraction du resultat de la requete d'authentifcation.
 *
 * \param msg pointeur vers le message.

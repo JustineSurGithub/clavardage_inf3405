@@ -132,6 +132,8 @@ void endConnection() {
 
 int __cdecl main(int argc, char **argv)
 {
+	SetConsoleTitle("Client de clavardage");
+
 	// Infos de connexion
 	ConnectionInfos infos;
 
@@ -174,13 +176,15 @@ int __cdecl main(int argc, char **argv)
 	char authReply[TAILLE_MAX_MESSAGES];
 	iResult = recv(leSocket, authReply, TAILLE_MAX_MESSAGES, 0);
 	if (iResult > 0) {
-		authReply[iResult] = '\0';
+		authReply[iResult-1] = '\0';
 		
 		bool authSuccessful = comm.getAuthentificationReplyResult(authReply);
 		if (!authSuccessful) {
 			cout << "Erreur dans la saisie du mot de passe." << endl;
 			endConnection();
 			return 1;
+		} else {
+			cout << "Bienvenue dans la salle de clavardage!" << endl;
 		}
 	}
 	else {

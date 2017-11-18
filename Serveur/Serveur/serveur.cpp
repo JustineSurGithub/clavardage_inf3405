@@ -10,9 +10,10 @@
 #include <map>
 
 #include "ConnectionInfos.h"
+#include "Communications.h"
 
 //Constantes
-const int TAILLE_MAX_MESSAGES = 200;
+//const int TAILLE_MAX_MESSAGES = 200;
 
 //Enum qui tient compte des diff�rentes issues possibles � l'authentification
 enum AuthentificationRep
@@ -31,6 +32,7 @@ using namespace std;
 // External functions
 extern DWORD WINAPI EchoHandler(void* sd_);
 extern void diffuser(char *msg);
+extern void envoyer(char* msg, SOCKET sd);
 extern void enregistrer(char *msg);
 extern char * creerFormatMessage(char *msg);
 extern AuthentificationRep Authentifier(SOCKET sd);
@@ -43,6 +45,8 @@ HANDLE socket_mutex;
 map<SOCKET, char *> pseudonymes;
 HANDLE pseudo_mutex;
 
+// Communications
+Communications comm;
 
 // List of Winsock error constants mapped to an interpretation string.
 // Note that this list must remain sorted by the error constants'
@@ -157,6 +161,8 @@ const char* WSAGetLastErrorMessage(const char* pcMessagePrefix, int nErrorID = 0
 
 int main(void)
 {
+	SetConsoleTitle("Serveur de clavardage");
+
 	// Infos de connexion
 	ConnectionInfos infos;
 
@@ -195,9 +201,7 @@ int main(void)
 	// The sockaddr_in structure specifies the address family,
 
 	//Recuperation de l'adresse locale
-	hostent *thisHost;
-
-	//TODO Modifier l'adresse IP ci-dessous pour celle de votre poste.
+	hostent* thisHost;
 	thisHost = gethostbyname(host);
 	char* ip;
 	ip = inet_ntoa(*(struct in_addr*) *thisHost->h_addr_list);
@@ -257,6 +261,7 @@ int main(void)
 				CreateThread(0, 0, EchoHandler, (void*)sd, 0, &nThreadID);
 			}
 			else {
+
 				closesocket(sd); // Ce client a �t� refus� � l'authentification.
 			}
 		}
@@ -288,7 +293,8 @@ DWORD WINAPI EchoHandler(void* sd_)
 			cout << "Received " << readBuffer << " from client." << endl;
 			char * beauFormat = creerFormatMessage(readBuffer);
 			enregistrer(beauFormat);
-			diffuser(beauFormat);
+			diffuser(readBuffer);
+			//diffuser(beauFormat);
 		}
 		else if (readBytes == SOCKET_ERROR) {
 			cout << WSAGetLastErrorMessage("Echec de la reception !") << endl;
@@ -306,11 +312,12 @@ DWORD WINAPI EchoHandler(void* sd_)
 // Authentifier l'utilisateur qui parle � un certain socket en s'assurant qu'il fait partie de la bd
 AuthentificationRep Authentifier(SOCKET sd)
 {
+	AuthentificationRep rep;
 	// Attend le pseudonyme et le mot de passe du client
 	char readBuffer[TAILLE_MAX_MESSAGES];
 	int readBytes;
-	char * pseudo;
-	char * motPasse;
+	string* pseudo = new string;
+	string* motPasse = new string;
 	char secante = ' ';
 
 	readBytes = recv(sd, readBuffer, TAILLE_MAX_MESSAGES, 0);
@@ -318,6 +325,29 @@ AuthentificationRep Authentifier(SOCKET sd)
 	{
 		cout << "Received " << readBytes << " bytes from client." << endl;
 		cout << "Received " << readBuffer << " from client." << endl;
+
+		if (!comm.getAuthentificationInfoFromRequest(readBuffer, pseudo, motPasse)) {
+			// Error
+		}
+
+		// V�rifie dans la bd si le pseudonyme et le mot de passe sont corrects; d�termine le type de retour.
+		bool isValidUserInfo = true;
+
+		// Si le type est cr�ation on ajoute � la bd (acces sans mutex, table des pseudos). On envoie un message de confirmation de cr�ation de compte.
+
+		// Si le type est acceptation ou cr�ation on met le pseudonyme dans la map des pseudos (acces avec mutex) et on envoie les 15 derniers messages (acces avec mutex).
+		// On envoie aussi un message de bienvenue � l'usager et on diffuse un message de notification aux autres pour la connexion de la nouvelle personne.
+
+		if (isValidUserInfo) {
+			rep = AuthentificationRep::Acceptation;
+			// ou AuthentificationRep::Creation
+		}
+		else {
+			// Si le type est refus on envoie un message de refus.
+			rep = AuthentificationRep::Refus;
+		}
+
+		/*
 		for (unsigned int i = 0; i < readBytes; i++)
 		{
 			while (readBuffer[i] != secante)
@@ -325,23 +355,22 @@ AuthentificationRep Authentifier(SOCKET sd)
 				//pseudo  RENDUE L�
 			}
 		}
-
+		*/
 	}
 	else
 	{
-		return AuthentificationRep::Refus;
+		rep = AuthentificationRep::Refus;
 	}
 
-	// V�rifie dans la bd si le pseudonyme et le mot de passe sont corrects; d�termine le type de retour.
+	// Creation du message de reponse
+	char authReplyMsg[TAILLE_MAX_MESSAGES];
+	comm.createAuthentificationReplyMsg((rep == AuthentificationRep::Acceptation || rep == AuthentificationRep::Creation), authReplyMsg);
 
-	// Si le type est cr�ation on ajoute � la bd (acces sans mutex, table des pseudos). On envoie un message de confirmation de cr�ation de compte.
-
-	// Si le type est acceptation ou cr�ation on met le pseudonyme dans la map des pseudos (acces avec mutex) et on envoie les 15 derniers messages (acces avec mutex).
-	// On envoie aussi un message de bienvenue � l'usager et on diffuse un message de notification aux autres pour la connexion de la nouvelle personne.
-
-	// Si le type est refus on envoie un message de refus.
+	// Envoit du message de reponse
+	envoyer(authReplyMsg, sd);
 
 	// Retourner le type de retour.
+	return rep;
 }
 
 // Enjoliver le message en rajoutant les informations obligatoires comme le nom d'utilisateur
@@ -361,6 +390,14 @@ void enregistrer(char *msg)
 	// acc�s avec mutex; enregistrement de la donn�e dans bd. Donne un id � la donn�e qui est 1 de plus que le pr�c�dent.
 }
 
+
+// Envoyer sur un socket
+void envoyer(char* msg, SOCKET socket)
+{
+	WaitForSingleObject(socket_mutex, INFINITE);
+	send(socket, msg, TAILLE_MAX_MESSAGES, 0);
+	ReleaseMutex(socket_mutex);
+}
 
 // Diffuser aux autres sockets
 void diffuser(char *msg)
