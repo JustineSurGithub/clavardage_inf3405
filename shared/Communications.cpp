@@ -126,12 +126,20 @@ string Communications::getContentFromChatMsg(char* msg) {
 /**
 * Extraction du contenu d'un message d'echo recu du serveur.
 *
+* \param echo pointeur vers le string dans lequel mettre l'echo.
 * \param msg pointeur vers le message provenant du client.
-* \return contenu.
+* \return success.
 */
-string Communications::getEchoFromMsg(char* msg) {
-	++msg;
-	return string(msg);
+bool Communications::getEchoFromMsg(string* echo, char* msg) {
+
+	if ((TypeMessage)msg[0] == TypeMessage::MESSAGE_ECHO) {
+		++msg;
+		*echo = string(msg);
+		return true;
+	}
+	else {
+		return false;
+	}
 }
 
 

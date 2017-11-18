@@ -341,7 +341,11 @@ DWORD WINAPI EchoHandler(void* sd_)
 			comm.createChatMsgEcho(header, contenu, msgFormatte);
 			
 			// Add to DB and broadcast
-			db.addMessage(&comm.getEchoFromMsg(msgFormatte)[0]);
+			string* msgEchoContent = new string;
+			if (!comm.getEchoFromMsg(msgEchoContent, msgFormatte)) {
+				// Error: not an echo message
+			}
+			db.addMessage(&((*msgEchoContent)[0]));
 			diffuser(msgFormatte);
 		}
 		else if (readBytes == SOCKET_ERROR) {
@@ -371,8 +375,8 @@ AuthentificationRep Authentifier(SOCKET sd)
 	readBytes = recv(sd, readBuffer, TAILLE_MAX_MESSAGES, 0);
 	if (readBytes > 0)
 	{
-		cout << "Received " << readBytes << " bytes from client." << endl;
-		cout << "Received " << readBuffer << " from client." << endl;
+		//cout << "Received " << readBytes << " bytes from client." << endl;
+		//cout << "Received " << readBuffer << " from client." << endl;
 	} else {
 		rep = AuthentificationRep::Refus;
 		return rep;

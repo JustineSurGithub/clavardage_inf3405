@@ -22,6 +22,11 @@
 
 using namespace std;
 
+
+// Function prototypes
+DWORD WINAPI receiveMessages(void* sd_);
+DWORD WINAPI sendMessages(void* sd_);
+
 Communications comm;
 
 // Socket stuff
@@ -31,6 +36,11 @@ struct addrinfo *result = NULL,
 				*ptr = NULL,
 				hints;
 int iResult;
+
+HANDLE socket_mutex = CreateMutex(NULL, FALSE, NULL);
+
+bool doQuit = false;
+HANDLE quit_mutex = CreateMutex(NULL, FALSE, NULL);
 
 /**
 * Lecture d'un password avec remplacement des characteres par des *.
@@ -103,8 +113,8 @@ bool createSocket(char* host, char* port) {
 	sockaddr_in *adresse;
 	adresse = (struct sockaddr_in *) result->ai_addr;
 	//----------------------------------------------------
-	printf("Adresse trouvee pour le serveur %s : %s\n\n", host, inet_ntoa(adresse->sin_addr));
-	printf("Tentative de connexion au serveur %s avec le port %s\n\n", inet_ntoa(adresse->sin_addr), port);
+	printf("Adresse trouvee pour le serveur %s : %s\n", host, inet_ntoa(adresse->sin_addr));
+	printf("Tentative de connexion au serveur %s avec le port %s\n", inet_ntoa(adresse->sin_addr), port);
 
 	// On va se connecter au serveur en utilisant l'adresse qui se trouve dans
 	// la variable result.
@@ -225,6 +235,58 @@ int __cdecl main(int argc, char **argv)
 	}
 
 	// TODO: take care of threads for receiving and sending at the same time
+	DWORD nThreadID;
+	CreateThread(0, 0, sendMessages, (void*)leSocket, 0, &nThreadID);
+	CreateThread(0, 0, receiveMessages, (void*)leSocket, 0, &nThreadID);
+
+	while (true) {
+		// wait for threads
+		//WaitForSingleObject(quit_mutex, INFINITE);
+		//if (doQuit) break;
+		//ReleaseMutex(quit_mutex);
+	}
+
+	// Fin
+	endConnection();
+
+	printf("FIN Appuyez une touche pour finir\n");
+	getchar();
+	return 0;
+}
+
+DWORD WINAPI receiveMessages(void* sd_) {
+	SOCKET sd = (SOCKET)sd_;
+
+	while (true) {
+		// Obtenir le message
+		char msgEcho[TAILLE_MAX_MESSAGES];
+		WaitForSingleObject(socket_mutex, INFINITE);
+		iResult = recv(sd, msgEcho, TAILLE_MAX_MESSAGES, 0);
+		if (iResult > 0) {
+			msgEcho[iResult - 1] = '\0';
+		}
+		else {
+			printf("Erreur de reception : %d\n", WSAGetLastError());
+			return 1;
+		}
+		ReleaseMutex(socket_mutex);
+
+		// Extraire le contenu
+		string* msgEchoContent = new string;
+		if (!comm.getEchoFromMsg(msgEchoContent, msgEcho)) {
+			// Error: not an echo message
+		}
+
+		// Afficher le message
+		cout << *msgEchoContent << endl;
+	}
+
+	return 0;
+}
+
+DWORD WINAPI sendMessages(void* sd_) {
+	SOCKET sd = (SOCKET)sd_;
+
 	// Lecture et envoit de messages a volonte
 	cout << "Entrez votre message a envoyer : " << endl;
 	string chatMsg = comm.inputChatMessage();
@@ -232,6 +294,7 @@ int __cdecl main(int argc, char **argv)
 		char msg[TAILLE_MAX_MESSAGES];
 		comm.createChatMsg(chatMsg, msg);
 
+		//WaitForSingleObject(socket_mutex, INFINITE);
 		iResult = send(leSocket, msg, TAILLE_MAX_MESSAGES, 0);
 		if (iResult == SOCKET_ERROR) {
 			printf("Erreur du send: %d\n", WSAGetLastError());
@@ -240,14 +303,14 @@ int __cdecl main(int argc, char **argv)
 			getchar();
 			return 1;
 		}
+		//ReleaseMutex(socket_mutex);
 		chatMsg = comm.inputChatMessage();
 	}
 
+	// Signal end
+	//WaitForSingleObject(quit_mutex, INFINITE);
+	//doQuit = true;
+	//ReleaseMutex(quit_mutex);
 
-	// Fin
-	endConnection();
-
-	printf("FIN Appuyez une touche pour finir\n");
-	getchar();
 	return 0;
 }

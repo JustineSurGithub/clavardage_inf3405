@@ -49,7 +49,7 @@ public:
 	int getMessageHistoryAmount(char* msg);
 
 	string getContentFromChatMsg(char* msg);
-	string getEchoFromMsg(char* msg);
+	bool getEchoFromMsg(string* echo, char* msg);
 
 private:
 	void stringToCharPointer(string& str, char* chr);
