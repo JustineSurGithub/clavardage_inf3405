@@ -2,6 +2,7 @@
 
 // Suppression des warnings
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _SCL_SECURE_NO_WARNINGS
 
 #include <iostream>
 #include <stdlib.h>
@@ -10,56 +11,53 @@
 #include <vector>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <windows.h>
+#include <conio.h>
 
+#include "Communications.h"
 #include "ConnectionInfos.h"
 
 // Link avec ws2_32.lib
 #pragma comment(lib, "ws2_32.lib")
 
-
 using namespace std;
 
-enum TypeMessage {
-	AUTHENTIFICATION = 0,
-	MOT_DE_PASSE,
-	MESSAGE
-};
+Communications comm;
 
+// Socket stuff
+WSADATA wsaData;
+SOCKET leSocket;// = INVALID_SOCKET;
+struct addrinfo *result = NULL,
+				*ptr = NULL,
+				hints;
+int iResult;
 
-int __cdecl main(int argc, char **argv)
-{
-	ConnectionInfos infos;
+/**
+* Lecture d'un password avec remplacement des characteres par des *.
+*
+* \param password entre.
+*/
+string readPassword(const string& prompt) {
+	string pass;
+	char ch;
+	cout << prompt;
+	ch = _getch();
+	while (ch != '\r') {
+		pass.push_back(ch);
+		cout << '*';
+		ch = _getch();
+	}
+	cout << endl;
+	return pass;
+}
 
-	infos.setHost("Entrez l'adresse IP du poste sur lequel s'execute le serveur : ");
-	infos.setPort();
-
-	char host[16];
-	char port[5];
-
-	infos.getHostChar(host);
-	infos.getPortChar(port);
-
-	// TODO: enlever ceci
-	cout << "Host : " << host << endl;
-	cout << "Port : " << port << endl;
-
-
-	// ----------------------------------------------------------------------------------
-	WSADATA wsaData;
-	SOCKET leSocket;// = INVALID_SOCKET;
-	struct addrinfo *result = NULL,
-					*ptr = NULL,
-					hints;
-	char motEnvoye[200];
-	char motRecu[10];
-	int iResult;
-
+bool createSocket(char* host, char* port) {
 	//--------------------------------------------
 	// Initialisation de Winsock
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (iResult != 0) {
 		printf("Erreur de WSAStartup: %d\n", iResult);
-		return 1;
+		return false;
 	}
 	// On va creer le socket pour communiquer avec le serveur
 	leSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -69,7 +67,7 @@ int __cdecl main(int argc, char **argv)
 		WSACleanup();
 		printf("Appuyez une touche pour finir\n");
 		getchar();
-		return 1;
+		return false;
 	}
 	//--------------------------------------------
 	// On va chercher l'adresse du serveur en utilisant la fonction getaddrinfo.
@@ -78,12 +76,12 @@ int __cdecl main(int argc, char **argv)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;  // Protocole utilis� par le serveur
 
-	// getaddrinfo obtient l'adresse IP du host donn�
+									  // getaddrinfo obtient l'adresse IP du host donn�
 	iResult = getaddrinfo(host, port, &hints, &result);
 	if (iResult != 0) {
 		printf("Erreur de getaddrinfo: %d\n", iResult);
 		WSACleanup();
-		return 1;
+		return false;
 	}
 	//---------------------------------------------------------------------		
 	//On parcours les adresses retournees jusqu'a trouve la premiere adresse IPV4
@@ -99,7 +97,7 @@ int __cdecl main(int argc, char **argv)
 		WSACleanup();
 		printf("Appuyez une touche pour finir\n");
 		getchar();
-		return 1;
+		return false;
 	}
 
 	sockaddr_in *adresse;
@@ -117,49 +115,133 @@ int __cdecl main(int argc, char **argv)
 		WSACleanup();
 		printf("Appuyez une touche pour finir\n");
 		getchar();
-		return 1;
+		return false;
 	}
 
 	printf("Connecte au serveur %s:%s\n\n", host, port);
 	freeaddrinfo(result);
 
-	//----------------------------
-	// Demander � l'usager un mot a envoyer au serveur
-	printf("Saisir un mot de 7 lettres pour envoyer au serveur: ");
-	gets_s(motEnvoye);
+	return true;
+}
 
-	//-----------------------------
-	// Envoyer le mot au serveur
-	iResult = send(leSocket, motEnvoye, 7, 0);
-	if (iResult == SOCKET_ERROR) {
-		printf("Erreur du send: %d\n", WSAGetLastError());
-		closesocket(leSocket);
-		WSACleanup();
-		printf("Appuyez une touche pour finir\n");
-		getchar();
+void endConnection() {
+	closesocket(leSocket);
+	WSACleanup();
+}
 
+
+int __cdecl main(int argc, char **argv)
+{
+	// Infos de connexion
+	ConnectionInfos infos;
+
+	infos.setHost("Entrez l'adresse IP du poste sur lequel s'execute le serveur : ");
+	infos.setPort();
+
+	char host[ConnectionInfos::HOST_BUFFER_LENGTH];
+	char port[ConnectionInfos::PORT_BUFFER_LENGTH];
+
+	infos.getHostChar(host);
+	infos.getPortChar(port);
+
+	// Creation connexion
+	if (!createSocket(host, port)) {
+		// Fail
 		return 1;
 	}
 
-	printf("Nombre d'octets envoyes : %ld\n", iResult);
+	// Nom d'utilisateur et mot de passe
+	string username, password;
+	cout << "Entrez votre nom d'utilisateur : ";
+	getline(cin, username);
+	password = readPassword("Entrez votre mot de passe : ");
 
-	//------------------------------
-	// Maintenant, on va recevoir l' information envoy�e par le serveur
-	iResult = recv(leSocket, motRecu, 7, 0);
+	// Envoyer la requete d'authentification au serveur
+	char authRequest[TAILLE_MAX_MESSAGES];
+	comm.createAuthentificationRequestMsg(username, password, authRequest);
+
+	iResult = send(leSocket, authRequest, TAILLE_MAX_MESSAGES, 0);
+	if (iResult == SOCKET_ERROR) {
+		printf("Erreur du send: %d\n", WSAGetLastError());
+		endConnection();
+		printf("Appuyez une touche pour finir\n");
+		getchar();
+		return 1;
+	}
+	//printf("Nombre d'octets envoyes : %ld\n", iResult);
+
+	// Reception de la reponse a la requete d'authentification
+	char authReply[TAILLE_MAX_MESSAGES];
+	iResult = recv(leSocket, authReply, TAILLE_MAX_MESSAGES, 0);
 	if (iResult > 0) {
-		printf("Nombre d'octets recus: %d\n", iResult);
-		motRecu[iResult] = '\0';
-		printf("Le mot recu est %*s\n", iResult, motRecu);
+		authReply[iResult] = '\0';
+		
+		bool authSuccessful = comm.getAuthentificationReplyResult(authReply);
+		if (!authSuccessful) {
+			cout << "Erreur dans la saisie du mot de passe." << endl;
+			endConnection();
+			return 1;
+		}
 	}
 	else {
 		printf("Erreur de reception : %d\n", WSAGetLastError());
 	}
 
-	// cleanup
-	closesocket(leSocket);
-	WSACleanup();
+	// Reception du message contenant le nombre de message historiques a recevoir
+	int nombreMsgHistoriques = -1;
+	char msgHistoryAmount[TAILLE_MAX_MESSAGES];
+	iResult = recv(leSocket, msgHistoryAmount, TAILLE_MAX_MESSAGES, 0);
+	if (iResult > 0) {
+		msgHistoryAmount[iResult] = '\0';
 
-	printf("Appuyez une touche pour finir\n");
+		nombreMsgHistoriques = comm.getMessageHistoryAmount(msgHistoryAmount);
+		if (nombreMsgHistoriques < 0) {
+			cout << "Erreur dans la reception du nombre de messages historiques." << endl;
+			endConnection();
+			return 1;
+		}
+	}
+	else {
+		printf("Erreur de reception : %d\n", WSAGetLastError());
+	}
+
+	// Reception des derniers <= nombreMsgHistoriques messages
+	for (int i = 0; i < nombreMsgHistoriques; ++i) {
+		char msgHistory[TAILLE_MAX_MESSAGES];
+		iResult = recv(leSocket, msgHistory, TAILLE_MAX_MESSAGES, 0);
+		if (iResult > 0) {
+			msgHistory[iResult] = '\0';
+			// TODO: extract info/should messages directly contain headers+message content?
+			cout << msgHistory << endl;
+		}
+		else {
+			printf("Erreur de reception : %d\n", WSAGetLastError());
+		}
+	}
+
+	// TODO: take care of threads for receiving and sending at the same time
+	// Lecture et envoit de messages a volonte
+	string chatMsg = comm.inputChatMessage();
+	while (!chatMsg.empty()) {
+		char msg[TAILLE_MAX_MESSAGES];
+		comm.createChatMsg(chatMsg, msg);
+
+		iResult = send(leSocket, msg, TAILLE_MAX_MESSAGES, 0);
+		if (iResult == SOCKET_ERROR) {
+			printf("Erreur du send: %d\n", WSAGetLastError());
+			endConnection();
+			printf("Appuyez une touche pour finir\n");
+			getchar();
+			return 1;
+		}
+		chatMsg = comm.inputChatMessage();
+	}
+
+
+	// Fin
+	endConnection();
+
+	printf("FIN Appuyez une touche pour finir\n");
 	getchar();
 	return 0;
 }

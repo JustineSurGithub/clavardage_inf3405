@@ -28,6 +28,8 @@ public:
 	static const int BYTE_MAX_VALUE;
 	static const int PORT_MIN;
 	static const int PORT_MAX;
+	static const int HOST_BUFFER_LENGTH = 16;
+	static const int PORT_BUFFER_LENGTH = 5;
 
 private:
 	vector<string> split(const string& str, const string& delim);
