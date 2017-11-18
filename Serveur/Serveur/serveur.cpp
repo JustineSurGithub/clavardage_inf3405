@@ -11,8 +11,6 @@
 
 #include "ConnectionInfos.h"
 
-using namespace std;
-
 //Constantes
 const int TAILLE_MAX_MESSAGES = 200;
 
@@ -26,6 +24,9 @@ enum AuthentificationRep
 
 // link with Ws2_32.lib
 #pragma comment( lib, "ws2_32.lib" )
+
+using namespace std;
+
 
 // External functions
 extern DWORD WINAPI EchoHandler(void* sd_);
@@ -156,6 +157,18 @@ const char* WSAGetLastErrorMessage(const char* pcMessagePrefix, int nErrorID = 0
 
 int main(void)
 {
+	// Infos de connexion
+	ConnectionInfos infos;
+
+	infos.setHost("Entrez l'adresse IP du poste sur lequel s'execute le serveur : ");
+	infos.setPort();
+
+	char host[ConnectionInfos::HOST_BUFFER_LENGTH];
+	int* port = new int(0);
+
+	infos.getHostChar(host);
+	infos.getPortInt(port);
+
 	//----------------------
 	// Initialize Winsock.
 	WSADATA wsaData;
@@ -180,14 +193,12 @@ int main(void)
 
 	//----------------------
 	// The sockaddr_in structure specifies the address family,
-	// IP address, and port for the socket that is being bound.
-	int port = 5030;
 
 	//Recuperation de l'adresse locale
 	hostent *thisHost;
 
 	//TODO Modifier l'adresse IP ci-dessous pour celle de votre poste.
-	thisHost = gethostbyname("132.207.29.101");
+	thisHost = gethostbyname(host);
 	char* ip;
 	ip = inet_ntoa(*(struct in_addr*) *thisHost->h_addr_list);
 	printf("Adresse locale trouvee %s : \n\n", ip);
@@ -196,7 +207,7 @@ int main(void)
 	//service.sin_addr.s_addr = inet_addr("127.0.0.1");
 	//	service.sin_addr.s_addr = INADDR_ANY;
 	service.sin_addr.s_addr = inet_addr(ip);
-	service.sin_port = htons(port);
+	service.sin_port = htons(*port);
 
 	if (bind(ServerSocket, (SOCKADDR*)&service, sizeof(service)) == SOCKET_ERROR) {
 		cerr << WSAGetLastErrorMessage("bind() failed.") << endl;

@@ -141,6 +141,15 @@ void ConnectionInfos::getPortChar(char* buff) {
 }
 
 /**
+* Accesseur pour le port qui le copie dans un int*.
+*
+* \param p pointeur vers l'int dans lequel copier le port.
+*/
+void ConnectionInfos::getPortInt(int* p) {
+	*p = stoi(port_);
+}
+
+/**
 * Divise un string en differents sous-strings selon un delimiteur.
 *
 * \param str string a diviser.

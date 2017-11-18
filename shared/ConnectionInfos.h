@@ -23,6 +23,8 @@ public:
 	void getHostChar(char* buff);
 	void getPortChar(char* buff);
 
+	void getPortInt(int* p);
+
 	static const int NUM_PERIODS;
 	static const int NUM_BYTES;
 	static const int BYTE_MAX_VALUE;
