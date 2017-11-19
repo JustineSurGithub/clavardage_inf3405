@@ -17,7 +17,7 @@ string Communications::inputChatMessage() {
 	getline(cin, message);
 	if (message.length() > CHAT_MESSAGE_MAX_LENGTH) {
 		message.resize(CHAT_MESSAGE_MAX_LENGTH);
-		cout << "ATTENTION : message tronque a " << CHAT_MESSAGE_MAX_LENGTH << "caracteres." << endl;
+		cout << "ATTENTION : message tronque a " << CHAT_MESSAGE_MAX_LENGTH << " caracteres." << endl;
 	}
 	return message;
 }
@@ -216,4 +216,35 @@ int Communications::getMessageHistoryAmount(char* msg) {
 void Communications::stringToCharPointer(string& str, char* chr) {
 	size_t length = str.copy(chr, str.length());
 	chr[length] = '\0';
+}
+
+/**
+* Copie d'un string dans un tableau de char.
+*
+* \param timeInfo pointeur vers structure.
+* \param chr pointeur vers le tableau de char dans lequel copier.
+*/
+void Communications::getDateTime(string* dateStr, string* timeStr) {
+	tm* timeInfo = new tm;
+	time_t t = time(0);
+	localtime_s(timeInfo, &t);
+
+	char buf[3];
+
+	*dateStr += to_string(timeInfo->tm_year + 1900);
+	*dateStr += "-";
+	sprintf_s(buf, "%02d", (timeInfo->tm_mon + 1));
+	*dateStr += string(buf);
+	*dateStr += "-";
+	sprintf_s(buf, "%02d", (timeInfo->tm_mday));
+	*dateStr += string(buf);
+
+	sprintf_s(buf, "%02d", (timeInfo->tm_hour));
+	*timeStr += string(buf);
+	*timeStr += ":";
+	sprintf_s(buf, "%02d", (timeInfo->tm_min));
+	*timeStr += string(buf);
+	*timeStr += ":";
+	sprintf_s(buf, "%02d", (timeInfo->tm_sec));
+	*timeStr += string(buf);
 }

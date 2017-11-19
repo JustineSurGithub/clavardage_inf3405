@@ -24,10 +24,11 @@ using namespace std;
 
 
 // Function prototypes
+bool createSocket(char* host, char* port);
+void endConnection();
 DWORD WINAPI receiveMessages(void* sd_);
 DWORD WINAPI sendMessages(void* sd_);
-
-Communications comm;
+string readPassword(const string& prompt);
 
 // Socket stuff
 WSADATA wsaData;
@@ -41,6 +42,197 @@ HANDLE socket_mutex = CreateMutex(NULL, FALSE, NULL);
 
 bool doQuit = false;
 HANDLE quit_mutex = CreateMutex(NULL, FALSE, NULL);
+
+Communications comm;
+
+
+int __cdecl main(int argc, char **argv)
+{
+	SetConsoleTitle("Client de clavardage");
+
+	// Infos de connexion
+	ConnectionInfos infos;
+
+	infos.setHost("Entrez l'adresse IP du poste sur lequel s'execute le serveur : ");
+	infos.setPort();
+
+	char host[ConnectionInfos::HOST_BUFFER_LENGTH];
+	char port[ConnectionInfos::PORT_BUFFER_LENGTH];
+
+	infos.getHostChar(host);
+	infos.getPortChar(port);
+
+	// Creation socket
+	if (!createSocket(host, port)) {
+		cerr << "Socket fail." << endl;
+		return 1;
+	}
+
+	// Nom d'utilisateur et mot de passe
+	string username, password;
+	cout << "Entrez votre nom d'utilisateur : ";
+	getline(cin, username);
+	password = readPassword("Entrez votre mot de passe : ");
+
+	// Envoyer la requete d'authentification au serveur
+	char authRequest[TAILLE_MAX_MESSAGES];
+	comm.createAuthentificationRequestMsg(username, password, authRequest);
+
+	iResult = send(leSocket, authRequest, TAILLE_MAX_MESSAGES, 0);
+	if (iResult == SOCKET_ERROR) {
+		printf("Erreur du send: %d\n", WSAGetLastError());
+		endConnection();
+		printf("Appuyez une touche pour finir\n");
+		getchar();
+		return 1;
+	}
+	//printf("Nombre d'octets envoyes : %ld\n", iResult);
+
+	system("cls");
+	// Reception de la reponse a la requete d'authentification
+	char authReply[TAILLE_MAX_MESSAGES];
+	iResult = recv(leSocket, authReply, TAILLE_MAX_MESSAGES, 0);
+	if (iResult > 0) {
+		authReply[iResult-1] = '\0';
+		
+		bool authSuccessful = comm.getAuthentificationReplyResult(authReply);
+		if (!authSuccessful) {
+			cout << "Erreur dans la saisie du mot de passe." << endl << "Appuyez sur une touche pour quitter." << endl;
+			getchar();
+			endConnection();
+			return 1;
+		} else {
+			cout << "Bienvenue dans la salle de clavardage!" << endl << endl;
+		}
+	}
+	else {
+		cerr << "Erreur de reception : " << WSAGetLastError() << endl;
+	}
+
+	// Reception du message contenant le nombre de message historiques a recevoir
+	int nombreMsgHistoriques = -1;
+	char msgHistoryAmount[TAILLE_MAX_MESSAGES];
+	iResult = recv(leSocket, msgHistoryAmount, TAILLE_MAX_MESSAGES, 0);
+	if (iResult > 0) {
+		msgHistoryAmount[iResult-1] = '\0';
+
+		nombreMsgHistoriques = comm.getMessageHistoryAmount(msgHistoryAmount);
+		if (nombreMsgHistoriques < 0) {
+			cout << "Erreur dans la reception du nombre de messages historiques." << endl;
+			endConnection();
+			return 1;
+		}
+	}
+	else {
+		printf("Erreur de reception : %d\n", WSAGetLastError());
+	}
+
+	// Reception des derniers <= nombreMsgHistoriques messages
+	for (int i = 0; i < nombreMsgHistoriques; ++i) {
+		char msgHistory[TAILLE_MAX_MESSAGES];
+		iResult = recv(leSocket, msgHistory, TAILLE_MAX_MESSAGES, 0);
+		if (iResult > 0) {
+			msgHistory[iResult-1] = '\0';
+			// TODO: extract info/should messages directly contain headers+message content?
+			cout << msgHistory << endl;
+		}
+		else {
+			printf("Erreur de reception : %d\n", WSAGetLastError());
+		}
+	}
+
+	// TODO: take care of threads for receiving and sending at the same time
+	DWORD nThreadID;
+	CreateThread(0, 0, sendMessages, (void*)leSocket, 0, &nThreadID);
+	CreateThread(0, 0, receiveMessages, (void*)leSocket, 0, &nThreadID);
+
+	while (true) {
+		// wait for threads
+		//WaitForSingleObject(quit_mutex, INFINITE);
+		//if (doQuit) break;
+		//ReleaseMutex(quit_mutex);
+	}
+
+	// Fin
+	endConnection();
+
+	printf("FIN Appuyez une touche pour finir\n");
+	getchar();
+	return 0;
+}
+
+/**
+* Reception des messages.
+*
+* \param sd_ pointeur vers le socket.
+* \return success.
+*/
+DWORD WINAPI receiveMessages(void* sd_) {
+	SOCKET sd = (SOCKET)sd_;
+
+	while (true) {
+		// Obtenir le message
+		char msgEcho[TAILLE_MAX_MESSAGES];
+		WaitForSingleObject(socket_mutex, INFINITE);
+		iResult = recv(sd, msgEcho, TAILLE_MAX_MESSAGES, 0);
+		if (iResult > 0) {
+			msgEcho[iResult - 1] = '\0';
+		}
+		else {
+			printf("Erreur de reception : %d\n", WSAGetLastError());
+			return 1;
+		}
+		ReleaseMutex(socket_mutex);
+
+		// Extraire le contenu
+		string* msgEchoContent = new string;
+		if (!comm.getEchoFromMsg(msgEchoContent, msgEcho)) {
+			cerr << "Error: not an echo message." << endl;
+			return 1;
+		}
+
+		// Afficher le message
+		cout << *msgEchoContent << endl;
+	}
+
+	return 0;
+}
+
+/**
+* Envoie des messages.
+*
+* \param sd_ pointeur vers le socket.
+* \return success.
+*/
+DWORD WINAPI sendMessages(void* sd_) {
+	SOCKET sd = (SOCKET)sd_;
+
+	// Lecture et envoit de messages a volonte
+	string chatMsg = comm.inputChatMessage();
+	while (!chatMsg.empty()) {
+		char msg[TAILLE_MAX_MESSAGES];
+		comm.createChatMsg(chatMsg, msg);
+
+		//WaitForSingleObject(socket_mutex, INFINITE);
+		iResult = send(leSocket, msg, TAILLE_MAX_MESSAGES, 0);
+		if (iResult == SOCKET_ERROR) {
+			printf("Erreur du send: %d\n", WSAGetLastError());
+			endConnection();
+			printf("Appuyez une touche pour finir\n");
+			getchar();
+			return 1;
+		}
+		//ReleaseMutex(socket_mutex);
+		chatMsg = comm.inputChatMessage();
+	}
+
+	// Signal end
+	//WaitForSingleObject(quit_mutex, INFINITE);
+	//doQuit = true;
+	//ReleaseMutex(quit_mutex);
+
+	return 1;
+}
 
 /**
 * Lecture d'un password avec remplacement des characteres par des *.
@@ -61,6 +253,13 @@ string readPassword(const string& prompt) {
 	return pass;
 }
 
+/**
+* Creation du socket.
+*
+* \param host pointeur vers l'adresse IP de l'hote.
+* \param port pointeur vers le port.
+* \return success.
+*/
 bool createSocket(char* host, char* port) {
 	//--------------------------------------------
 	// Initialisation de Winsock
@@ -134,183 +333,10 @@ bool createSocket(char* host, char* port) {
 	return true;
 }
 
+/**
+* Fermeture de la connexion.
+*/
 void endConnection() {
 	closesocket(leSocket);
 	WSACleanup();
-}
-
-
-int __cdecl main(int argc, char **argv)
-{
-	SetConsoleTitle("Client de clavardage");
-
-	// Infos de connexion
-	ConnectionInfos infos;
-
-	infos.setHost("Entrez l'adresse IP du poste sur lequel s'execute le serveur : ");
-	infos.setPort();
-
-	char host[ConnectionInfos::HOST_BUFFER_LENGTH];
-	char port[ConnectionInfos::PORT_BUFFER_LENGTH];
-
-	infos.getHostChar(host);
-	infos.getPortChar(port);
-
-	// Creation connexion
-	if (!createSocket(host, port)) {
-		// Fail
-		return 1;
-	}
-
-	// Nom d'utilisateur et mot de passe
-	string username, password;
-	cout << "Entrez votre nom d'utilisateur : ";
-	getline(cin, username);
-	password = readPassword("Entrez votre mot de passe : ");
-
-	// Envoyer la requete d'authentification au serveur
-	char authRequest[TAILLE_MAX_MESSAGES];
-	comm.createAuthentificationRequestMsg(username, password, authRequest);
-
-	iResult = send(leSocket, authRequest, TAILLE_MAX_MESSAGES, 0);
-	if (iResult == SOCKET_ERROR) {
-		printf("Erreur du send: %d\n", WSAGetLastError());
-		endConnection();
-		printf("Appuyez une touche pour finir\n");
-		getchar();
-		return 1;
-	}
-	//printf("Nombre d'octets envoyes : %ld\n", iResult);
-
-	// Reception de la reponse a la requete d'authentification
-	char authReply[TAILLE_MAX_MESSAGES];
-	iResult = recv(leSocket, authReply, TAILLE_MAX_MESSAGES, 0);
-	if (iResult > 0) {
-		authReply[iResult-1] = '\0';
-		
-		bool authSuccessful = comm.getAuthentificationReplyResult(authReply);
-		if (!authSuccessful) {
-			cout << "Erreur dans la saisie du mot de passe." << endl << "Appuyez sur une touche pour quitter." << endl;
-			getchar();
-			endConnection();
-			return 1;
-		} else {
-			cout << "Bienvenue dans la salle de clavardage!" << endl;
-		}
-	}
-	else {
-		printf("Erreur de reception : %d\n", WSAGetLastError());
-	}
-
-	// Reception du message contenant le nombre de message historiques a recevoir
-	int nombreMsgHistoriques = -1;
-	char msgHistoryAmount[TAILLE_MAX_MESSAGES];
-	iResult = recv(leSocket, msgHistoryAmount, TAILLE_MAX_MESSAGES, 0);
-	if (iResult > 0) {
-		msgHistoryAmount[iResult-1] = '\0';
-
-		nombreMsgHistoriques = comm.getMessageHistoryAmount(msgHistoryAmount);
-		if (nombreMsgHistoriques < 0) {
-			cout << "Erreur dans la reception du nombre de messages historiques." << endl;
-			endConnection();
-			return 1;
-		}
-	}
-	else {
-		printf("Erreur de reception : %d\n", WSAGetLastError());
-	}
-
-	// Reception des derniers <= nombreMsgHistoriques messages
-	for (int i = 0; i < nombreMsgHistoriques; ++i) {
-		char msgHistory[TAILLE_MAX_MESSAGES];
-		iResult = recv(leSocket, msgHistory, TAILLE_MAX_MESSAGES, 0);
-		if (iResult > 0) {
-			msgHistory[iResult-1] = '\0';
-			// TODO: extract info/should messages directly contain headers+message content?
-			cout << msgHistory << endl;
-		}
-		else {
-			printf("Erreur de reception : %d\n", WSAGetLastError());
-		}
-	}
-
-	// TODO: take care of threads for receiving and sending at the same time
-	DWORD nThreadID;
-	CreateThread(0, 0, sendMessages, (void*)leSocket, 0, &nThreadID);
-	CreateThread(0, 0, receiveMessages, (void*)leSocket, 0, &nThreadID);
-
-	while (true) {
-		// wait for threads
-		//WaitForSingleObject(quit_mutex, INFINITE);
-		//if (doQuit) break;
-		//ReleaseMutex(quit_mutex);
-	}
-
-	// Fin
-	endConnection();
-
-	printf("FIN Appuyez une touche pour finir\n");
-	getchar();
-	return 0;
-}
-
-DWORD WINAPI receiveMessages(void* sd_) {
-	SOCKET sd = (SOCKET)sd_;
-
-	while (true) {
-		// Obtenir le message
-		char msgEcho[TAILLE_MAX_MESSAGES];
-		WaitForSingleObject(socket_mutex, INFINITE);
-		iResult = recv(sd, msgEcho, TAILLE_MAX_MESSAGES, 0);
-		if (iResult > 0) {
-			msgEcho[iResult - 1] = '\0';
-		}
-		else {
-			printf("Erreur de reception : %d\n", WSAGetLastError());
-			return 1;
-		}
-		ReleaseMutex(socket_mutex);
-
-		// Extraire le contenu
-		string* msgEchoContent = new string;
-		if (!comm.getEchoFromMsg(msgEchoContent, msgEcho)) {
-			// Error: not an echo message
-		}
-
-		// Afficher le message
-		cout << *msgEchoContent << endl;
-	}
-
-	return 0;
-}
-
-DWORD WINAPI sendMessages(void* sd_) {
-	SOCKET sd = (SOCKET)sd_;
-
-	// Lecture et envoit de messages a volonte
-	cout << "Entrez votre message a envoyer : " << endl;
-	string chatMsg = comm.inputChatMessage();
-	while (!chatMsg.empty()) {
-		char msg[TAILLE_MAX_MESSAGES];
-		comm.createChatMsg(chatMsg, msg);
-
-		//WaitForSingleObject(socket_mutex, INFINITE);
-		iResult = send(leSocket, msg, TAILLE_MAX_MESSAGES, 0);
-		if (iResult == SOCKET_ERROR) {
-			printf("Erreur du send: %d\n", WSAGetLastError());
-			endConnection();
-			printf("Appuyez une touche pour finir\n");
-			getchar();
-			return 1;
-		}
-		//ReleaseMutex(socket_mutex);
-		chatMsg = comm.inputChatMessage();
-	}
-
-	// Signal end
-	//WaitForSingleObject(quit_mutex, INFINITE);
-	//doQuit = true;
-	//ReleaseMutex(quit_mutex);
-
-	return 0;
 }

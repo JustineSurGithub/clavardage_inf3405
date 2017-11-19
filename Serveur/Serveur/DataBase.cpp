@@ -2,6 +2,9 @@
 
 DataBase::DataBase()
 {
+	// Ouvrir la DB pour preparer la lecture et l'ecriture
+	
+	// TODO: REMOVE -- TEST
 	msgDb_.push_back("THIS IS A MESSAGE");
 	msgDb_.push_back("THIS IS ANOTHER MESSAGE");
 	msgDb_.push_back("THIS IS A THIRD MESSAGE");
@@ -18,7 +21,7 @@ DataBase::~DataBase()
 * \return resultat.
 */
 bool DataBase::isExistingUser(const string& username) {
-
+	// TODO: implement
 
 	return true;
 }
@@ -31,7 +34,7 @@ bool DataBase::isExistingUser(const string& username) {
 * \return resultat.
 */
 bool DataBase::isValidPassword(const string& username, const string& password) {
-
+	// TODO: implement
 
 	return true;
 }
@@ -43,7 +46,7 @@ bool DataBase::isValidPassword(const string& username, const string& password) {
 * \param password mot de passe.
 */
 void DataBase::createUser(const string& username, const string& password) {
-	
+	// TODO: implement
 }
 
 /**
@@ -54,7 +57,7 @@ void DataBase::createUser(const string& username, const string& password) {
 vector<string> DataBase::getMessageHistory() {
 	vector<string> msgHistory;
 	
-	// TEST
+	// TODO: REMOVE -- TEST
 	auto it = msgDb_.begin();
 	int adv = (msgDb_.size() < MESSAGE_HISTORY_MAX) ? 0 : msgDb_.size() - MESSAGE_HISTORY_MAX;
 	advance(it, adv);
@@ -75,7 +78,8 @@ void DataBase::addMessage(char* msg) {
 	string msg_str(msg);
 	// acces avec mutex; enregistrement de la donnee dans bd. Donne un id a la donnee qui est 1 de plus que le precedent.
 
-	cout << "Adding msg to DB : " << msg_str << endl;
-	// TEST
+	// TODO: REMOVE -- TEST
+	//cout << "Adding msg to DB : " << msg_str << endl;
+	cout << msg_str << endl;
 	msgDb_.push_back(msg_str);
 }
