@@ -99,7 +99,7 @@ void Communications::createMessageHistoryAmountMsg(int numberOfMsg, char* msg) {
 	createMsg(TypeMessage::MESSAGE_HISTORY_AMOUNT, to_string(numberOfMsg), msg);
 }
 
-/** TODOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+/**
 * Creation d'un echo de message de chat (fait par un autre utilisateur).
 *
 * \param header le header avec les informations.
@@ -139,13 +139,15 @@ string Communications::getContentFromChatMsg(char* msg) {
 * \return success.
 */
 bool Communications::getEchoFromMsg(string* echo, char* msg) {
-
-	if ((TypeMessage)msg[0] == TypeMessage::MESSAGE_ECHO) {
+	// Verification message
+	if (getTypeFromMsg(msg) == TypeMessage::MESSAGE_ECHO) {
 		++msg;
 		*echo = string(msg);
 		return true;
 	}
 	else {
+		// Message invalide
+		cerr << "Erreur : message d'echo invalide." << endl;
 		return false;
 	}
 }
@@ -174,18 +176,18 @@ bool Communications::getAuthentificationInfoFromRequest(char* msg, string* user,
 	bool res = true;
 	string msg_str(msg);
 
+	// Verification message
 	if ((TypeMessage)msg_str[0] == TypeMessage::AUTHENTIFICATION_REQUEST) {
 		size_t sep_pos = msg_str.find((char)TypeMessage::PASSWORD_SEPARATOR);
 		if (sep_pos != string::npos) {
 			*user = msg_str.substr(1, sep_pos - 1);
 			*pass = msg_str.substr(sep_pos + 1, string::npos);
-		}
-		else {
+		} else {
 			res = false;
 		}
-	}
-	else {
+	} else {
 		// Not a valid authentification request message
+		cerr << "Erreur : message de requete d'authentification invalide." << endl;
 		res = false;
 	}
 
@@ -200,7 +202,13 @@ bool Communications::getAuthentificationInfoFromRequest(char* msg, string* user,
 * \return resultat de la requete d'authentification.
 */
 bool Communications::getAuthentificationReplyResult(char* msg, bool& passwordValid) {
-	// TODO: check if message header is actually TypeMessage::AUTHENTIFICATION_REQUEST
+	// Verification message
+	if (getTypeFromMsg(msg) != TypeMessage::AUTHENTIFICATION_REPLY) {
+		// Message invalide
+		cerr << "Erreur : message de reponse d'authentification invalide." << endl;
+		return false;
+	}
+
 	bool authAccepted = (TypeMessage)msg[1] == TypeMessage::AUTHENTIFICATION_ACCEPTED;
 	if (!authAccepted) {
 		if ((TypeMessage)msg[2] == TypeMessage::AUTHENTIFICATION_DENIED_CONNECTED) {
@@ -221,7 +229,12 @@ bool Communications::getAuthentificationReplyResult(char* msg, bool& passwordVal
 * \return nombre de messages de l'historique a recevoir.
 */
 int Communications::getMessageHistoryAmount(char* msg) {
-	// TODO: check if message header is actually TypeMessage::MESSAGE_HISTORY_AMOUNT
+	// Verification message
+	if (getTypeFromMsg(msg) != TypeMessage::MESSAGE_HISTORY_AMOUNT) {
+		// Message invalide
+		cerr << "Erreur : message de quantite de messages historiques invalide." << endl;
+		return 0;
+	}
 	string number;
 	number += msg[1];
 	number += msg[2];
