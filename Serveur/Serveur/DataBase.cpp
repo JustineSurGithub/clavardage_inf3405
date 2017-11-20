@@ -3,14 +3,20 @@
 
 #include "DataBase.h"
 
-#define MAX_HISTORY_SIZE 15
+#define MAX_HISTORY_SIZE 16
 
+/**
+* Constructeur : cree les mutexes.
+*/
 DataBase::DataBase()
 {
 	mutex_usagers_ = CreateMutex(NULL, FALSE, NULL);
 	mutex_messages_ = CreateMutex(NULL, FALSE, NULL);
 }
 
+/**
+* Destructeur : s'assurer que les fichiers sont bien fermes.
+*/
 DataBase::~DataBase()
 {
 	if (memMessages_.is_open())
@@ -121,7 +127,8 @@ vector<string> DataBase::getMessageHistory() {
 		derniersMsg.push(line);
 	}
 	fermetureFichier(FICHIER_DONNEES_, mutex_messages_);
-	for (unsigned int i = 0; i < derniersMsg.size(); ++i) 
+	unsigned int tailleHistorique = derniersMsg.size();
+	for (unsigned int i = 0; i < tailleHistorique - 1; ++i) 
 	{
 		msgHistory.push_back(derniersMsg.front());
 		derniersMsg.pop();
