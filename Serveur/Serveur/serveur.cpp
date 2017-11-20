@@ -25,6 +25,7 @@ DWORD WINAPI connectionHandler(void* sd_);
 void diffuser(char* msg, SOCKET s);
 void envoyer(char* msg, SOCKET sd);
 bool Authentifier(SOCKET sd);
+bool isUserAlreadyConnected(SOCKET sd);
 
 // Enum qui tient compte des differentes issues possibles a l'authentification
 enum AuthentificationRep
@@ -128,6 +129,12 @@ static struct ErrorEntry {
 };
 const int kNumMessages = sizeof(gaErrorList) / sizeof(ErrorEntry);
 
+bool isUserAlreadyConnected(SOCKET sd) {
+	WaitForSingleObject(pseudo_mutex, INFINITE);
+	bool res = pseudonymes.find(sd) != pseudonymes.end();
+	ReleaseMutex(pseudo_mutex);
+	return res;
+}
 
 /**
 * Envoyer a un socket specifique.
@@ -305,7 +312,7 @@ bool Authentifier(SOCKET sd)
 		return false;
 	}
 
-	// Verifie dans la bd si le pseudonyme et le mot de passe sont corrects; d�termine le type de retour.
+	// Verifie dans la bd si le pseudonyme et le mot de passe sont corrects; determine le type de retour.
 	bool userExists = db.isExistingUser(*pseudo);
 	if (userExists) {
 		// Utilisateur existe, verification du mot de passe
@@ -336,12 +343,12 @@ bool Authentifier(SOCKET sd)
 	usr->ip = string(inet_ntoa(client_info.sin_addr));
 	usr->port = string(to_string(ntohs(client_info.sin_port)));
 
-	// TODO: verifier si utilisateur est avec le meme username est deja connecte!
-
+	// Verifier si utilisateur est avec le meme username est deja connecte!
+	bool isAlreadyConnected = isUserAlreadyConnected(sd);
 
 	// Creation du message de reponse
 	char authReplyMsg[TAILLE_MAX_MESSAGES];
-	bool successAuth = (rep == AuthentificationRep::Acceptation || rep == AuthentificationRep::Creation);
+	bool successAuth = (rep == AuthentificationRep::Acceptation || rep == AuthentificationRep::Creation) && !isAlreadyConnected;
 	comm.createAuthentificationReplyMsg(successAuth, authReplyMsg);
 
 	if (successAuth) {
@@ -379,7 +386,11 @@ bool Authentifier(SOCKET sd)
 		return true;
 	} else {
 		// Affichage d'une notice de refus d'authentification sur le serveur
-		cout << "Authentification de l'utilisateur " << usr->username << "@" << usr->ip << ":" << usr->port << " refusee : mauvais mot de passe." << endl;
+		if (isAlreadyConnected) {
+			cout << "Authentification de l'utilisateur " << usr->username << "@" << usr->ip << ":" << usr->port << " refusee : utilisateur deja connecte avec un autre client." << endl;
+		} else {
+			cout << "Authentification de l'utilisateur " << usr->username << "@" << usr->ip << ":" << usr->port << " refusee : mauvais mot de passe." << endl;
+		}
 
 		// Envoit du message de refus
 		envoyer(authReplyMsg, sd);
