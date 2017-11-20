@@ -195,7 +195,7 @@ int main(void)
 		// Accept the connection.
 		SOCKET sd = accept(ServerSocket, (sockaddr*)&sinRemote, &nAddrSize);
 		if (sd != INVALID_SOCKET) {
-			cout << "Connection acceptee De : " <<
+			cout << "Connection acceptee de : " <<
 					inet_ntoa(sinRemote.sin_addr) << ":" <<
 					ntohs(sinRemote.sin_port) << "." <<
 					endl;
@@ -210,7 +210,6 @@ int main(void)
 			}
 			else {
 				closesocket(sd); // Ce client a ete refuse l'authentification.
-				return 1;
 			}
 		}
 		else {
@@ -372,6 +371,11 @@ bool Authentifier(SOCKET sd)
 
 		return true;
 	} else {
+		// Affichage d'une notice de refus d'authentification sur le serveur
+		cout << "Authentification du client " << usr->username << "@" << usr->ip << ":" << usr->port << " refusee : mauvais mot de passe." << endl;
+
+		// Envoit du message de refus
+		envoyer(authReplyMsg, sd);
 		return false;
 	}
 }
