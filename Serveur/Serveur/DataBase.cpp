@@ -1,21 +1,12 @@
-#include "DataBase.h"
 #include <fstream>
 #include <queue>
+
+#include "DataBase.h"
 
 #define MAX_HISTORY_SIZE 15
 
 DataBase::DataBase()
 {
-	// Ouvrir la DB pour preparer la lecture et l'ecriture
-	memMessages_.open("donnees.txt", ios::app);
-	memUsagers_.open("usagers.txt", ios::app);
-	if (!memUsagers_.is_open() || !memMessages_.is_open())
-	{
-			cout << "Le serveur n'arrive pas a se connecter a la base de donnees. Arret du systeme." << endl;
-			exit(EXIT_FAILURE);
-	}
-	memMessages_.close();
-	memUsagers_.close();
 	mutex_usagers_ = CreateMutex(NULL, FALSE, NULL);
 	mutex_messages_ = CreateMutex(NULL, FALSE, NULL);
 }
@@ -41,25 +32,20 @@ DataBase::~DataBase()
 bool DataBase::isExistingUser(const string& username) {
 	// Regarder si l'un des noms des utilisateurs correspond a celui passe en parametre
 	string line;
-	WaitForSingleObject(mutex_usagers_, INFINITE);
-	memUsagers_.clear();
-	memUsagers_.seekg(0, ios::beg);
-	memUsagers_.open("usagers.txt");
+	ouvertureFichierLecture(FICHIER_USAGERS_, mutex_usagers_);
 	while (!memUsagers_.eof())
 	{
 		// Lire un nom d'usager
 		getline(memUsagers_, line);
 		if (line == username)
 		{
-			memUsagers_.close();
-			ReleaseMutex(mutex_usagers_);
+			fermetureFichier(FICHIER_USAGERS_, mutex_usagers_);
 			return true;
 		}
 		// Lire un mot de passe 
 		getline(memUsagers_, line);
 	}
-	memUsagers_.close();
-	ReleaseMutex(mutex_usagers_);
+	fermetureFichier(FICHIER_USAGERS_, mutex_usagers_);
 	return false;
 }
 
@@ -74,10 +60,7 @@ bool DataBase::isValidPassword(const string& username, const string& password) {
 	// Regarder si l'un des noms des utilisateurs correspond a celui passe en parametre.
 	// Si oui, regarder si le mot de passe correspond egalement.
 	string line;
-	WaitForSingleObject(mutex_usagers_, INFINITE);
-	memUsagers_.clear();
-	memUsagers_.seekg(0, ios::beg);
-	memUsagers_.open("usagers.txt");
+	ouvertureFichierLecture(FICHIER_USAGERS_, mutex_usagers_);
 	while (!memUsagers_.eof())
 	{
 		// Lire un nom d'usager et verifier la correspondance.
@@ -88,8 +71,7 @@ bool DataBase::isValidPassword(const string& username, const string& password) {
 			getline(memUsagers_, line);
 			if (line == password)
 			{
-				memUsagers_.close();
-				ReleaseMutex(mutex_usagers_);
+				fermetureFichier(FICHIER_USAGERS_, mutex_usagers_);
 				return true;
 			}
 		}
@@ -99,8 +81,7 @@ bool DataBase::isValidPassword(const string& username, const string& password) {
 			getline(memUsagers_, line);
 		}
 	}
-	memUsagers_.close();
-	ReleaseMutex(mutex_usagers_);
+	fermetureFichier(FICHIER_USAGERS_, mutex_usagers_);
 	return false;
 }
 
@@ -112,11 +93,9 @@ bool DataBase::isValidPassword(const string& username, const string& password) {
 */
 void DataBase::createUser(const string& username, const string& password) {
 	// Ecrire le nom d'usager sur une ligne puis le mot de passe.
-	WaitForSingleObject(mutex_usagers_, INFINITE);
-	memUsagers_.open("usagers.txt", ios::app);
+	ouvertureFichierEcriture(FICHIER_USAGERS_, mutex_usagers_);
 	memUsagers_ << username << endl << password << endl;
-	memUsagers_.close();
-	ReleaseMutex(mutex_usagers_);
+	fermetureFichier(FICHIER_USAGERS_, mutex_usagers_);
 }
 
 /**
@@ -130,10 +109,7 @@ vector<string> DataBase::getMessageHistory() {
 	vector<string> msgHistory;
 	queue<string> derniersMsg;
 	// Lire les derniers messages
-	WaitForSingleObject(mutex_messages_, INFINITE);
-	memMessages_.clear();
-	memMessages_.seekg(0, ios::beg);
-	memMessages_.open("donnees.txt");
+	ouvertureFichierLecture(FICHIER_DONNEES_, mutex_messages_);
 	while (!memMessages_.eof())
 	{
 		// Lire un message et le mettre dans la queue
@@ -144,8 +120,7 @@ vector<string> DataBase::getMessageHistory() {
 		}
 		derniersMsg.push(line);
 	}
-	memMessages_.close();
-	ReleaseMutex(mutex_messages_);
+	fermetureFichier(FICHIER_DONNEES_, mutex_messages_);
 	for (unsigned int i = 0; i < derniersMsg.size(); ++i) 
 	{
 		msgHistory.push_back(derniersMsg.front());
@@ -163,9 +138,85 @@ vector<string> DataBase::getMessageHistory() {
 void DataBase::addMessage(char* msg) {
 	string msg_str(msg);
 	// acces avec mutex; enregistrement de la donnee dans bd. 
-	WaitForSingleObject(mutex_messages_, INFINITE);
-	memMessages_.open("donnees.txt", ios::app);
+	ouvertureFichierEcriture(FICHIER_DONNEES_, mutex_messages_);
 	memMessages_ << msg_str << endl;
-	memMessages_.close();
-	ReleaseMutex(mutex_messages_);
+	fermetureFichier(FICHIER_DONNEES_, mutex_messages_);
+}
+
+/**
+* Ouvrir la DB pour preparer la lecture.
+*
+* \param nom du fichier a ouvrir.
+* \param mutex protegeant le fichier.
+*/
+void DataBase::ouvertureFichierLecture(string nomFichier, HANDLE mutex) {
+	WaitForSingleObject(mutex, INFINITE);
+	if (nomFichier == FICHIER_DONNEES_)
+	{
+		memMessages_.clear();
+		memMessages_.seekg(0, ios::beg);
+		memMessages_.open(nomFichier);
+		if (!memMessages_.is_open())
+		{
+			cout << "Le serveur n'arrive pas a se connecter a la base de donnees. Arret du systeme." << endl;
+			exit(EXIT_FAILURE);
+		}
+	}
+	else
+	{
+		memUsagers_.clear();
+		memUsagers_.seekg(0, ios::beg);
+		memUsagers_.open(nomFichier);
+		if (!memUsagers_.is_open())
+		{
+			cout << "Le serveur n'arrive pas a se connecter a la base de donnees. Arret du systeme." << endl;
+			exit(EXIT_FAILURE);
+		}
+	}
+}
+
+/**
+* Ouvrir la DB pour preparer l'ecriture.
+*
+* \param nom du fichier a ouvrir.
+* \param mutex protegeant le fichier.
+*/
+void DataBase::ouvertureFichierEcriture(string nomFichier, HANDLE mutex) {
+	WaitForSingleObject(mutex, INFINITE);
+	if (nomFichier == FICHIER_DONNEES_)
+	{
+		memMessages_.open(nomFichier, ios::app);
+		if (!memMessages_.is_open())
+		{
+			cout << "Le serveur n'arrive pas a se connecter a la base de donnees. Arret du systeme." << endl;
+			exit(EXIT_FAILURE);
+		}
+	}
+	else
+	{
+		memUsagers_.open(nomFichier, ios::app);
+		if (!memUsagers_.is_open()) 
+		{
+			cout << "Le serveur n'arrive pas a se connecter a la base de donnees. Arret du systeme." << endl;
+			exit(EXIT_FAILURE);
+		}
+	}
+}
+
+/**
+* Fermer un fichier de db.
+*
+* \param nom du fichier a fermer.
+* \param mutex protegeant le fichier.
+*/
+void DataBase::fermetureFichier(string nomFichier, HANDLE mutex) {
+	if (nomFichier == FICHIER_DONNEES_)
+	{
+		memMessages_.close();
+	}
+	else
+	{
+		memUsagers_.close();
+	}
+	ReleaseMutex(mutex);
 }

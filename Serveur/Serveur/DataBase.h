@@ -30,4 +30,10 @@ private:
 	HANDLE mutex_usagers_;
 	HANDLE mutex_messages_;
 
+	void ouvertureFichierLecture(string nomFichier, HANDLE mutex);
+	void ouvertureFichierEcriture(string nomFichier, HANDLE mutex);
+	void fermetureFichier(string nomFichier, HANDLE mutex);
+
+	const string FICHIER_DONNEES_ = "donnees.txt";
+	const string FICHIER_USAGERS_ = "usagers.txt";
 };
