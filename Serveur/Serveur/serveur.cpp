@@ -130,12 +130,6 @@ static struct ErrorEntry {
 const int kNumMessages = sizeof(gaErrorList) / sizeof(ErrorEntry);
 
 bool isUserAlreadyConnected(string username) {
-	/*
-	WaitForSingleObject(pseudo_mutex, INFINITE);
-	bool res = pseudonymes.find(sd) != pseudonymes.end();
-	ReleaseMutex(pseudo_mutex);
-	return res;
-	*/
 	bool res = false;
 	WaitForSingleObject(pseudo_mutex, INFINITE);
 	auto it = pseudonymes.begin();
@@ -285,6 +279,12 @@ DWORD WINAPI connectionHandler(void* sd_)
 				break;
 		}
 	}
+
+	// Retrait de l'utilisateur dans la map
+	WaitForSingleObject(pseudo_mutex, INFINITE);
+	pseudonymes.erase(sd);
+	ReleaseMutex(pseudo_mutex);
+
 	// Le serveur publie sur sa console la deconnexion.
 	cout << "L'utilisateur " << usr->username << " s'est deconnecte." << endl;
 	closesocket(sd);
