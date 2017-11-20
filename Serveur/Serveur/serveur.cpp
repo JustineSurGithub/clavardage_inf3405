@@ -25,7 +25,7 @@ DWORD WINAPI connectionHandler(void* sd_);
 void diffuser(char* msg, SOCKET s);
 void envoyer(char* msg, SOCKET sd);
 bool Authentifier(SOCKET sd);
-bool isUserAlreadyConnected(SOCKET sd);
+bool isUserAlreadyConnected(string username);
 
 // Enum qui tient compte des differentes issues possibles a l'authentification
 enum AuthentificationRep
@@ -129,9 +129,20 @@ static struct ErrorEntry {
 };
 const int kNumMessages = sizeof(gaErrorList) / sizeof(ErrorEntry);
 
-bool isUserAlreadyConnected(SOCKET sd) {
+bool isUserAlreadyConnected(string username) {
+	/*
 	WaitForSingleObject(pseudo_mutex, INFINITE);
 	bool res = pseudonymes.find(sd) != pseudonymes.end();
+	ReleaseMutex(pseudo_mutex);
+	return res;
+	*/
+	bool res = false;
+	WaitForSingleObject(pseudo_mutex, INFINITE);
+	auto it = pseudonymes.begin();
+	while (it != pseudonymes.end()) {
+		if (it->second->username == username) res = true;
+		++it;
+	}
 	ReleaseMutex(pseudo_mutex);
 	return res;
 }
@@ -344,7 +355,7 @@ bool Authentifier(SOCKET sd)
 	usr->port = string(to_string(ntohs(client_info.sin_port)));
 
 	// Verifier si utilisateur est avec le meme username est deja connecte!
-	bool isAlreadyConnected = isUserAlreadyConnected(sd);
+	bool isAlreadyConnected = isUserAlreadyConnected(usr->username);
 
 	// Creation du message de reponse
 	char authReplyMsg[TAILLE_MAX_MESSAGES];
