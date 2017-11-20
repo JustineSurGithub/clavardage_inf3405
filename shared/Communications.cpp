@@ -69,14 +69,22 @@ void Communications::createAuthentificationRequestMsg(string& user, string& pass
 * Creation d'un message de reponse d'authentification.
 *
 * \param isAccepted reponse d'authentification (acceptation ou refus).
+* \param isPasswordValid indique la raison du refus (true : password invalide; false : deja connecte).
 * \param msg pointeur vers le message a creer.
 */
-void Communications::createAuthentificationReplyMsg(bool isAccepted, char* msg) {
+void Communications::createAuthentificationReplyMsg(bool isAccepted, bool isPasswordValid, char* msg) {
 	string resp;
 	if (isAccepted) {
 		resp += TypeMessage::AUTHENTIFICATION_ACCEPTED;
 	} else {
 		resp += TypeMessage::AUTHENTIFICATION_DENIED;
+		if (!isPasswordValid) {
+			// Mot de passe invalide
+			resp += TypeMessage::AUTHENTIFICATION_DENIED_PASSWORD;
+		} else {
+			// donc raison de refus = 
+			resp += TypeMessage::AUTHENTIFICATION_DENIED_CONNECTED;
+		}
 	}
 	createMsg(TypeMessage::AUTHENTIFICATION_REPLY, resp, msg);
 }
@@ -99,7 +107,7 @@ void Communications::createMessageHistoryAmountMsg(int numberOfMsg, char* msg) {
 * \param msg pointeur vers le message a creer.
 */
 void Communications::createChatMsgEcho(string& header, string& contenu, char* msg) {
-	createMsg(TypeMessage::MESSAGE_ECHO, header+ contenu, msg);
+	createMsg(TypeMessage::MESSAGE_ECHO, header + contenu, msg);
 }
 
 /**
@@ -171,10 +179,12 @@ bool Communications::getAuthentificationInfoFromRequest(char* msg, string* user,
 		if (sep_pos != string::npos) {
 			*user = msg_str.substr(1, sep_pos - 1);
 			*pass = msg_str.substr(sep_pos + 1, string::npos);
-		} else {
+		}
+		else {
 			res = false;
 		}
-	} else {
+	}
+	else {
 		// Not a valid authentification request message
 		res = false;
 	}
@@ -186,11 +196,22 @@ bool Communications::getAuthentificationInfoFromRequest(char* msg, string* user,
 * Extraction du resultat de la requete d'authentifcation.
 *
 * \param msg pointeur vers le message.
+* \param passwordInvalid pointeur vers un bool a verifier si l'authentification est refusee (true : deja connecte; false : password invalide).
 * \return resultat de la requete d'authentification.
 */
-bool Communications::getAuthentificationReplyResult(char* msg) {
+bool Communications::getAuthentificationReplyResult(char* msg, bool& passwordValid) {
 	// TODO: check if message header is actually TypeMessage::AUTHENTIFICATION_REQUEST
-	return (TypeMessage)msg[1] == TypeMessage::AUTHENTIFICATION_ACCEPTED;
+	bool authAccepted = (TypeMessage)msg[1] == TypeMessage::AUTHENTIFICATION_ACCEPTED;
+	if (!authAccepted) {
+		if ((TypeMessage)msg[2] == TypeMessage::AUTHENTIFICATION_DENIED_CONNECTED) {
+			// Utilisateur deja connecte
+			passwordValid = true;
+		} else {
+			// Password invalide
+			passwordValid = false;
+		}
+	}
+	return authAccepted;
 }
 
 /**

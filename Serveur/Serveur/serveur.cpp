@@ -325,9 +325,10 @@ bool Authentifier(SOCKET sd)
 
 	// Verifie dans la bd si le pseudonyme et le mot de passe sont corrects; determine le type de retour.
 	bool userExists = db.isExistingUser(*pseudo);
+	bool isValidUserInfo;
 	if (userExists) {
 		// Utilisateur existe, verification du mot de passe
-		bool isValidUserInfo = db.isValidPassword(*pseudo, *motPasse);
+		isValidUserInfo = db.isValidPassword(*pseudo, *motPasse);
 		if (isValidUserInfo) {
 			// Mot de passe valide
 			rep = AuthentificationRep::Acceptation;
@@ -360,7 +361,7 @@ bool Authentifier(SOCKET sd)
 	// Creation du message de reponse
 	char authReplyMsg[TAILLE_MAX_MESSAGES];
 	bool successAuth = (rep == AuthentificationRep::Acceptation || rep == AuthentificationRep::Creation) && !isAlreadyConnected;
-	comm.createAuthentificationReplyMsg(successAuth, authReplyMsg);
+	comm.createAuthentificationReplyMsg(successAuth, isValidUserInfo, authReplyMsg);
 
 	if (successAuth) {
 		// On met la struct dans la map des pseudos (acces avec mutex).
@@ -397,10 +398,10 @@ bool Authentifier(SOCKET sd)
 		return true;
 	} else {
 		// Affichage d'une notice de refus d'authentification sur le serveur
-		if (isAlreadyConnected) {
-			cout << "Authentification de l'utilisateur " << usr->username << "@" << usr->ip << ":" << usr->port << " refusee : utilisateur deja connecte avec un autre client." << endl;
-		} else {
+		if (!isValidUserInfo) {
 			cout << "Authentification de l'utilisateur " << usr->username << "@" << usr->ip << ":" << usr->port << " refusee : mauvais mot de passe." << endl;
+		} else {
+			cout << "Authentification de l'utilisateur " << usr->username << "@" << usr->ip << ":" << usr->port << " refusee : utilisateur deja connecte avec un autre client." << endl;
 		}
 
 		// Envoit du message de refus

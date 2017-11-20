@@ -86,18 +86,26 @@ int __cdecl main(int argc, char **argv)
 		getchar();
 		return 1;
 	}
-	//printf("Nombre d'octets envoyes : %ld\n", iResult);
 
+	// Clear console
 	system("cls");
+
 	// Reception de la reponse a la requete d'authentification
 	char authReply[TAILLE_MAX_MESSAGES];
 	iResult = recv(leSocket, authReply, TAILLE_MAX_MESSAGES, 0);
 	if (iResult > 0) {
 		authReply[iResult-1] = '\0';
 		
-		bool authSuccessful = comm.getAuthentificationReplyResult(authReply);
+		bool passwordValid;
+
+		bool authSuccessful = comm.getAuthentificationReplyResult(authReply, passwordValid);
 		if (!authSuccessful) {
-			cout << "Erreur dans la saisie du mot de passe." << endl;
+			// Raison du refus
+			if (!passwordValid) {
+				cout << "Erreur dans la saisie du mot de passe." << endl;
+			} else {
+				cout << "Utilisateur " << username << " deja connecte." << endl;
+			}
 			system("pause");
 			endConnection();
 			return 1;
