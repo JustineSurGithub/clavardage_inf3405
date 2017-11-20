@@ -6,3 +6,7 @@ ooko
 ll
 christophe
 lemotdepassedechristophe
+c
+s
+newuser
+password

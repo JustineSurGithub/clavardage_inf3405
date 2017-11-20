@@ -268,7 +268,7 @@ DWORD WINAPI connectionHandler(void* sd_)
 		}
 	}
 	// Le serveur publie sur sa console la deconnexion.
-	cout << "Le client " << sd << " s'est deconnecte." << endl;
+	cout << "L'utilisateur " << usr->username << " s'est deconnecte." << endl;
 	closesocket(sd);
 
 	return 0;
@@ -336,10 +336,8 @@ bool Authentifier(SOCKET sd)
 	usr->ip = string(inet_ntoa(client_info.sin_addr));
 	usr->port = string(to_string(ntohs(client_info.sin_port)));
 
-	// On met la struct dans la map des pseudos (acces avec mutex).
-	WaitForSingleObject(pseudo_mutex, INFINITE);
-	pseudonymes.insert(pair<SOCKET, UserInfo*>(sd, usr));
-	ReleaseMutex(pseudo_mutex);
+	// TODO: verifier si utilisateur est avec le meme username est deja connecte!
+
 
 	// Creation du message de reponse
 	char authReplyMsg[TAILLE_MAX_MESSAGES];
@@ -347,8 +345,17 @@ bool Authentifier(SOCKET sd)
 	comm.createAuthentificationReplyMsg(successAuth, authReplyMsg);
 
 	if (successAuth) {
+		// On met la struct dans la map des pseudos (acces avec mutex).
+		WaitForSingleObject(pseudo_mutex, INFINITE);
+		pseudonymes.insert(pair<SOCKET, UserInfo*>(sd, usr));
+		ReleaseMutex(pseudo_mutex);
+
 		// Affichage d'une notice d'authentification sur le serveur
-		cout << "Authentification du client " << usr->username << "@" << usr->ip << ":" << usr->port << " reussie." << endl;
+		if (rep == AuthentificationRep::Creation) {
+			cout << "Authentification d'un nouvel utilisateur " << usr->username << "@" << usr->ip << ":" << usr->port << " reussie." << endl;
+		} else {
+			cout << "Authentification de l'utilisateur " << usr->username << "@" << usr->ip << ":" << usr->port << " reussie." << endl;
+		}
 
 		// Envoit du message de reponse
 		envoyer(authReplyMsg, sd);
@@ -372,7 +379,7 @@ bool Authentifier(SOCKET sd)
 		return true;
 	} else {
 		// Affichage d'une notice de refus d'authentification sur le serveur
-		cout << "Authentification du client " << usr->username << "@" << usr->ip << ":" << usr->port << " refusee : mauvais mot de passe." << endl;
+		cout << "Authentification de l'utilisateur " << usr->username << "@" << usr->ip << ":" << usr->port << " refusee : mauvais mot de passe." << endl;
 
 		// Envoit du message de refus
 		envoyer(authReplyMsg, sd);

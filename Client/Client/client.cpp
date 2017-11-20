@@ -97,12 +97,12 @@ int __cdecl main(int argc, char **argv)
 		
 		bool authSuccessful = comm.getAuthentificationReplyResult(authReply);
 		if (!authSuccessful) {
-			cout << "Erreur dans la saisie du mot de passe." << endl << "Appuyez sur une touche pour quitter." << endl;
-			getchar();
+			cout << "Erreur dans la saisie du mot de passe." << endl;
+			system("pause");
 			endConnection();
 			return 1;
 		} else {
-			cout << "Bienvenue dans la salle de clavardage!" << endl << endl;
+			cout << "Bienvenue dans la salle de clavardage, " << username << "!" << endl << endl;
 		}
 	}
 	else {
@@ -141,23 +141,14 @@ int __cdecl main(int argc, char **argv)
 		}
 	}
 
-	// TODO: take care of threads for receiving and sending at the same time
 	DWORD nThreadID;
-	CreateThread(0, 0, sendMessages, (void*)leSocket, 0, &nThreadID);
 	CreateThread(0, 0, receiveMessages, (void*)leSocket, 0, &nThreadID);
 
-	while (true) {
-		// wait for threads
-		//WaitForSingleObject(quit_mutex, INFINITE);
-		//if (doQuit) break;
-		//ReleaseMutex(quit_mutex);
-	}
+	sendMessages((void*)leSocket);
 
 	// Fin
 	endConnection();
-
-	printf("FIN Appuyez une touche pour finir\n");
-	getchar();
+	system("PAUSE");
 	return 0;
 }
 
@@ -171,6 +162,10 @@ DWORD WINAPI receiveMessages(void* sd_) {
 	SOCKET sd = (SOCKET)sd_;
 
 	while (true) {
+		//WaitForSingleObject(quit_mutex, INFINITE);
+		//if (doQuit) return 0;
+		//ReleaseMutex(quit_mutex);
+
 		// Obtenir le message
 		char msgEcho[TAILLE_MAX_MESSAGES];
 		WaitForSingleObject(socket_mutex, INFINITE);
@@ -179,7 +174,12 @@ DWORD WINAPI receiveMessages(void* sd_) {
 			msgEcho[iResult - 1] = '\0';
 		}
 		else {
-			printf("Erreur de reception : %d\n", WSAGetLastError());
+			// TODO: trop ghetto?
+			int errorCode = WSAGetLastError();
+			// If connection not closed by client, display error message
+			if (errorCode != 10053) {
+				printf("Erreur de reception : %d\n", WSAGetLastError());
+			}
 			return 1;
 		}
 		ReleaseMutex(socket_mutex);

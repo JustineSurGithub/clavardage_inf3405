@@ -5,3 +5,20 @@
 [christophe - 192.168.0.188:54863 - 2017-11-19@20:58:41]: allo tout le monde!
 [christophe - 192.168.0.188:54863 - 2017-11-19@20:58:49]: allooooooooooo
 [mickey - 192.168.0.188:54866 - 2017-11-19@20:59:56]: bonjour
+[mickey - 127.0.0.1:65416 - 2017-11-20@12:45:19]: ceci est mon message
+[mickey - 127.0.0.1:65446 - 2017-11-20@12:48:45]: monmessage
+[mickey - 127.0.0.1:50905 - 2017-11-20@12:57:41]: allo!
+[c - 127.0.0.1:50904 - 2017-11-20@12:57:52]: hey
+[c - 127.0.0.1:50904 - 2017-11-20@12:58:16]: hey
+[mickey - 127.0.0.1:50905 - 2017-11-20@12:58:19]: adebutdemessageallo
+[mickey - 127.0.0.1:61908 - 2017-11-20@13:09:42]: allo
+[mickey - 127.0.0.1:61929 - 2017-11-20@13:13:36]: allo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+[newuser - 127.0.0.1:61930 - 2017-11-20@13:13:56]: allo
+[mickey - 127.0.0.1:61929 - 2017-11-20@13:14:00]: hey
+[mickey - 127.0.0.1:61929 - 2017-11-20@13:14:05]: allo
+[newuser - 127.0.0.1:61930 - 2017-11-20@13:14:08]: allo
+[newuser - 127.0.0.1:61930 - 2017-11-20@13:14:11]: hey
+[newuser - 127.0.0.1:61930 - 2017-11-20@13:14:14]: allllllllllll
+[newuser - 127.0.0.1:61930 - 2017-11-20@13:14:17]: lllllllllllllllllllllllllllllllllllllllllllllll
+[mickey - 127.0.0.1:61929 - 2017-11-20@13:14:20]: heyyyyyyyyyyyyyy
+[mickey - 127.0.0.1:61929 - 2017-11-20@13:14:33]: heyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
