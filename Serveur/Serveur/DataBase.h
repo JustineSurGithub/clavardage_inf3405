@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <winsock2.h>
+#include <fstream>
 
 using namespace std;
 
@@ -23,7 +25,9 @@ public:
 	void addMessage(char* msg);
 
 private:
-	// TEST
-	vector<string> msgDb_;
+	fstream memMessages_;
+	fstream memUsagers_;
+	HANDLE mutex_usagers_;
+	HANDLE mutex_messages_;
 
 };

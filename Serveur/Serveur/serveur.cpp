@@ -307,7 +307,7 @@ bool Authentifier(SOCKET sd)
 	}
 
 	// Verifie dans la bd si le pseudonyme et le mot de passe sont corrects; d�termine le type de retour.
-	bool userExists = db.isExistingUser(*motPasse);
+	bool userExists = db.isExistingUser(*pseudo);
 	if (userExists) {
 		// Utilisateur existe, verification du mot de passe
 		bool isValidUserInfo = db.isValidPassword(*pseudo, *motPasse);
