@@ -137,8 +137,8 @@ DWORD WINAPI connectionHandler(void* sd_)
 	SOCKET sd = (SOCKET)sd_;
 	UserInfo* usr = pseudonymes[sd];
 	// Retrouver la date et l'heure.
-	string* date = new string; // Supprimer la date;
-	string* time = new string; // Supprimer la time;
+	string date;
+	string time;
 
 	while (true)
 	{
@@ -153,21 +153,19 @@ DWORD WINAPI connectionHandler(void* sd_)
 
 			// Format du message avec en-tete
 			char msgFormatte[TAILLE_MAX_MESSAGES];
-			string header = comm.createChatMsgInfoHeader(usr->username, usr->ip, usr->port, *date, *time);
+			string header = comm.createChatMsgInfoHeader(usr->username, usr->ip, usr->port, date, time);
 			string contenu = comm.getContentFromChatMsg(readBuffer);
 			comm.createChatMsgEcho(header, contenu, msgFormatte);
 
 			// Ajouter a la DB et diffuser
-			string* msgEchoContent = new string;
+			string msgEchoContent;
 			if (!comm.getEchoFromMsg(msgEchoContent, msgFormatte))
 			{
 				// Erreur : Ce n'est pas un message de type echo.
 				cerr << "Erreur : Ce n'est pas un message de type echo." << endl;
-				if (date != nullptr) delete date;
-				if (time != nullptr) delete time;
 				return 1;
 			}
-			db.ajoutMessage(&((*msgEchoContent)[0]));
+			db.ajoutMessage(&(msgEchoContent[0]));
 			diffuser(msgFormatte, sd);
 		}
 		else if (readBytes == SOCKET_ERROR)
@@ -176,17 +174,21 @@ DWORD WINAPI connectionHandler(void* sd_)
 			if (WSAGetLastError() == WSAECONNRESET)
 				break;
 		}
-		if (date != nullptr) delete date;
-		if (time != nullptr) delete time;
 	}
-
-	// Retrait de l'utilisateur dans la map
-	WaitForSingleObject(pseudoMutex, INFINITE);
-	pseudonymes.erase(sd);
-	ReleaseMutex(pseudoMutex);
 
 	// Le serveur publie sur sa console la deconnexion.
 	cout << "L'utilisateur " << usr->username << " s'est deconnecte." << endl;
+
+	// Retrait de l'utilisateur dans la map
+	WaitForSingleObject(pseudoMutex, INFINITE);
+	auto it = pseudonymes.find(sd);
+	if (it != pseudonymes.end()) {
+		delete it->second;
+		pseudonymes.erase(it);
+	}
+	ReleaseMutex(pseudoMutex);
+
+	// Fermeture du socket associe
 	closesocket(sd);
 
 	return 0;
@@ -310,10 +312,13 @@ bool Authentifier(SOCKET sd)
 	sockaddr_in client_info = { 0 };
 	int addrsize = sizeof(client_info);
 	getpeername(sd, (sockaddr*)&client_info, &addrsize);
-	UserInfo* usr = new UserInfo; // À supprimer.
+	UserInfo* usr = new UserInfo;
 	usr->username = *pseudo;
 	usr->ip = string(inet_ntoa(client_info.sin_addr));
 	usr->port = string(to_string(ntohs(client_info.sin_port)));
+
+	if (pseudo != nullptr) delete pseudo;
+	if (pseudo != nullptr) delete motPasse;
 
 	// Verifier si utilisateur est avec le meme username est deja connecte!
 	bool isAlreadyConnected = estUsagerDejaConnecte(usr->username);
@@ -397,7 +402,7 @@ int main(void)
 	infos.setPort();
 
 	char host[ConnectionInfos::HOST_BUFFER_LENGTH];
-	int* port = new int(0); // supprimer le port;
+	int* port = new int(0);
 
 	infos.getHostChar(host);
 	infos.getPortInt(port);
@@ -445,10 +450,35 @@ int main(void)
 		else
 		{
 			cerr << WSAGetLastErrorMessage("Echec d'une connection.") << endl;
+
 			if (port != nullptr) delete port;
+
+			// Vider map pseudonymes
+			WaitForSingleObject(pseudoMutex, INFINITE);
+			auto it = pseudonymes.begin();
+			while (it != pseudonymes.end())
+			{
+				delete it->second;
+				pseudonymes.erase(it);
+				++it;
+			}
+			ReleaseMutex(pseudoMutex);
 			return 1;
 		}
 	}
+
 	if (port != nullptr) delete port;
+
+	// Vider map pseudonymes
+	WaitForSingleObject(pseudoMutex, INFINITE);
+	auto it = pseudonymes.begin();
+	while (it != pseudonymes.end())
+	{
+		delete it->second;
+		pseudonymes.erase(it);
+		++it;
+	}
+	ReleaseMutex(pseudoMutex);
+
 	return 0;
 }

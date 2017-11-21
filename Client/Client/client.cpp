@@ -141,7 +141,6 @@ int __cdecl main(int argc, char **argv)
 		iResult = recv(leSocket, msgHistory, TAILLE_MAX_MESSAGES, 0);
 		if (iResult > 0) {
 			msgHistory[iResult-1] = '\0';
-			// TODO: extract info/should messages directly contain headers+message content?
 			cout << msgHistory << endl;
 		}
 		else {
@@ -149,9 +148,11 @@ int __cdecl main(int argc, char **argv)
 		}
 	}
 
+	// Creer thread pour recevoir les messages
 	DWORD nThreadID;
 	CreateThread(0, 0, receiveMessages, (void*)leSocket, 0, &nThreadID);
 
+	// Envoyer les messages
 	sendMessages((void*)leSocket);
 
 	// Fin
@@ -182,9 +183,8 @@ DWORD WINAPI receiveMessages(void* sd_) {
 			msgEcho[iResult - 1] = '\0';
 		}
 		else {
-			// TODO: trop ghetto?
+			// Si la connection n'a pas ete fermee par le client, afficher le message d'erreur
 			int errorCode = WSAGetLastError();
-			// If connection not closed by client, display error message
 			if (errorCode != 10053) {
 				printf("Erreur de reception : %d\n", WSAGetLastError());
 			}
@@ -193,14 +193,14 @@ DWORD WINAPI receiveMessages(void* sd_) {
 		ReleaseMutex(socket_mutex);
 
 		// Extraire le contenu
-		string* msgEchoContent = new string;
+		string msgEchoContent;
 		if (!comm.getEchoFromMsg(msgEchoContent, msgEcho)) {
 			cerr << "Error: not an echo message." << endl;
 			return 1;
 		}
 
 		// Afficher le message
-		cout << *msgEchoContent << endl;
+		cout << msgEchoContent << endl;
 	}
 
 	return 0;
@@ -233,11 +233,6 @@ DWORD WINAPI sendMessages(void* sd_) {
 		//ReleaseMutex(socket_mutex);
 		chatMsg = comm.inputChatMessage();
 	}
-
-	// Signal end
-	//WaitForSingleObject(quit_mutex, INFINITE);
-	//doQuit = true;
-	//ReleaseMutex(quit_mutex);
 
 	return 1;
 }

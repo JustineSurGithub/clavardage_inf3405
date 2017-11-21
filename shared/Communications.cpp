@@ -138,11 +138,11 @@ string Communications::getContentFromChatMsg(char* msg) {
 * \param msg pointeur vers le message provenant du client.
 * \return success.
 */
-bool Communications::getEchoFromMsg(string* echo, char* msg) {
+bool Communications::getEchoFromMsg(string& echo, char* msg) {
 	// Verification message
 	if (getTypeFromMsg(msg) == TypeMessage::MESSAGE_ECHO) {
 		++msg;
-		*echo = string(msg);
+		echo = string(msg);
 		return true;
 	}
 	else {
@@ -258,27 +258,32 @@ void Communications::stringToCharPointer(string& str, char* chr) {
 * \param timeInfo pointeur vers structure.
 * \param chr pointeur vers le tableau de char dans lequel copier.
 */
-void Communications::getDateTime(string* dateStr, string* timeStr) {
+void Communications::getDateTime(string& dateStr, string& timeStr) {
 	tm* timeInfo = new tm;
 	time_t t = time(0);
 	localtime_s(timeInfo, &t);
 
 	char buf[3];
 
-	*dateStr += to_string(timeInfo->tm_year + 1900);
-	*dateStr += "-";
+	dateStr = "";
+	timeStr = "";
+
+	dateStr += to_string(timeInfo->tm_year + 1900);
+	dateStr += "-";
 	sprintf_s(buf, "%02d", (timeInfo->tm_mon + 1));
-	*dateStr += string(buf);
-	*dateStr += "-";
+	dateStr += string(buf);
+	dateStr += "-";
 	sprintf_s(buf, "%02d", (timeInfo->tm_mday));
-	*dateStr += string(buf);
+	dateStr += string(buf);
 
 	sprintf_s(buf, "%02d", (timeInfo->tm_hour));
-	*timeStr += string(buf);
-	*timeStr += ":";
+	timeStr += string(buf);
+	timeStr += ":";
 	sprintf_s(buf, "%02d", (timeInfo->tm_min));
-	*timeStr += string(buf);
-	*timeStr += ":";
+	timeStr += string(buf);
+	timeStr += ":";
 	sprintf_s(buf, "%02d", (timeInfo->tm_sec));
-	*timeStr += string(buf);
+	timeStr += string(buf);
+
+	delete timeInfo;
 }

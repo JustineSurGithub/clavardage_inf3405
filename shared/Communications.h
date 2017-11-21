@@ -47,9 +47,9 @@ public:
 	bool getAuthentificationReplyResult(char* msg, bool& passwordValid);
 	int getMessageHistoryAmount(char* msg);
 	string getContentFromChatMsg(char* msg);
-	bool getEchoFromMsg(string* echo, char* msg);
+	bool getEchoFromMsg(string& echo, char* msg);
 
-	void getDateTime(string* dateStr, string* timeStr);
+	void getDateTime(string& dateStr, string& timeStr);
 
 private:
 	void stringToCharPointer(string& str, char* chr);
