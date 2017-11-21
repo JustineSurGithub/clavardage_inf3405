@@ -1,14 +1,18 @@
+/**
+* Fichier : DataBase.h
+* Cette classe est responsable des acces aux fichiers de donnees et d'usagers.
+* Christophe Bourque Bedard, Justine Pepin
+* 2017/11/20
+*/
 #pragma once
 
 #include <string>
 #include <vector>
 #include <iostream>
-#include <winsock2.h>
 #include <fstream>
+#include <winsock2.h>
 
 using namespace std;
-
-static const int MESSAGE_HISTORY_MAX = 15;
 
 class DataBase
 {
@@ -16,19 +20,18 @@ public:
 	DataBase();
 	~DataBase();
 
-	bool isExistingUser(const string& username);
-	bool isValidPassword(const string& username, const string& password);
-	void createUser(const string& username, const string& password);
+	bool estUsagerExistant(const string& pseudonyme);
+	bool estMotPasseValide(const string& pseudonyme, const string& motPasse);
+	void creerUsager(const string& pseudonyme, const string& motPasse);
 
-	vector<string> getMessageHistory();
-
-	void addMessage(char* msg);
+	vector<string> getHistoriqueMessages();
+	void ajoutMessage(char* msg);
 
 private:
 	fstream memMessages_;
 	fstream memUsagers_;
-	HANDLE mutex_usagers_;
-	HANDLE mutex_messages_;
+	HANDLE mutexUsagers_;
+	HANDLE mutexMessages_;
 
 	void ouvertureFichierLecture(string nomFichier, HANDLE mutex);
 	void ouvertureFichierEcriture(string nomFichier, HANDLE mutex);

@@ -1,4 +1,12 @@
-﻿#undef UNICODE
+﻿/**
+* Fichier : serveur.cpp
+* Ce fichier principal declenche les threads responsables des sockets.
+* Christophe Bourque Bedard, Justine Pepin
+* 2017/11/20
+*
+* D'apres le fichier de serveur du TP precedent.
+*/
+#undef UNICODE
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
@@ -13,12 +21,12 @@
 #include "Communications.h"
 #include "DataBase.h"
 
-// link with Ws2_32.lib
+/* Rattacher a Ws2_32.lib */
 #pragma comment( lib, "ws2_32.lib" )
 
 using namespace std;
 
-// Function prototypes
+/* Prototypes de fonction */
 const char* WSAGetLastErrorMessage(const char* pcMessagePrefix, int nErrorID = 0);
 bool createServerSocket(char* host, int* port);
 DWORD WINAPI connectionHandler(void* sd_);
@@ -27,7 +35,7 @@ void envoyer(char* msg, SOCKET sd);
 bool Authentifier(SOCKET sd);
 bool isUserAlreadyConnected(string username);
 
-// Enum qui tient compte des differentes issues possibles a l'authentification
+/* Enum qui tient compte des differentes issues possibles a l'authentification */
 enum AuthentificationRep
 {
 	Acceptation,
@@ -35,24 +43,25 @@ enum AuthentificationRep
 	Refus,
 };
 
-// Enum d'informations pour l'utilisateur
+/* Enum d'informations pour l'utilisateur */
 struct UserInfo {
 	string username;
 	string ip;
 	string port;
 };
 
-// Vecteur des sockets qui tient lieu de �chatroom�
+/* Vecteur des sockets qui tient lieu de salle de clavardage */
 vector<SOCKET> sockets;
 HANDLE socket_mutex;
 
-// Map des pseudos associes aux sockets
+/* Map des pseudos associes aux sockets */
 map<SOCKET, UserInfo*> pseudonymes;
 HANDLE pseudo_mutex;
 
-// Communications
+/* Communications */
 Communications comm;
-// Database de messages et usernames
+
+/* Database de messages et pseudos */
 DataBase db;
 
 SOCKET ServerSocket;
@@ -129,6 +138,12 @@ static struct ErrorEntry {
 };
 const int kNumMessages = sizeof(gaErrorList) / sizeof(ErrorEntry);
 
+/**
+* Verifier si un utilisateur est deja connecte avec le pseudo.
+*
+* \param string pseudo de l'utilisateur.
+* \return vrai si l'utilisateur est deja connecte.
+*/
 bool isUserAlreadyConnected(string username) {
 	bool res = false;
 	WaitForSingleObject(pseudo_mutex, INFINITE);
@@ -142,9 +157,9 @@ bool isUserAlreadyConnected(string username) {
 }
 
 /**
-* Envoyer a un socket specifique.
+* Envoyer un message a un socket specifique.
 *
-* \param msg pointeur vers le message a diffuser.
+* \param msg pointeur vers le message a transmettre.
 * \param s socket a utiliser.
 */
 void envoyer(char* msg, SOCKET socket)
@@ -155,7 +170,7 @@ void envoyer(char* msg, SOCKET socket)
 }
 
 /**
-* Diffuser aux autres sockets a part celui specifie.
+* Diffuser un message aux autres sockets a part celui specifie.
 *
 * \param msg pointeur vers le message a diffuser.
 * \param s socket a utiliser.
@@ -172,6 +187,13 @@ void diffuser(char *msg, SOCKET s)
 	ReleaseMutex(socket_mutex);
 }
 
+
+/*
+* La fonction principale du serveur cree le serveur et autres objets du serveur.
+* Elle attend ensuite qu'un port la contacte et cree un socket. Pour chaque nouveau socket,
+* si l'utilisateur du nouveau socket n'est pas capable de s'authentifier correctement, on supprime le socket.
+* Sinon, on cree un thread pour attendre les messages de cet utilisateur correctement identifie.
+*/
 int main(void)
 {
 	SetConsoleTitle("Serveur de clavardage");
@@ -183,7 +205,7 @@ int main(void)
 	infos.setPort();
 
 	char host[ConnectionInfos::HOST_BUFFER_LENGTH];
-	int* port = new int(0); // delete port;
+	int* port = new int(0); // supprimer le port;
 
 	infos.getHostChar(host);
 	infos.getPortInt(port);
@@ -191,11 +213,11 @@ int main(void)
 	// Creation socket
 	if (!createServerSocket(host, port)) {
 		cerr << "Socket fail." << endl;
+		if (port != nullptr) delete port;
 		return 1;
 	}
 
 	//----------------------
-
 	//Creer les mutex puisqu'on aura surement plusieurs clients
 	socket_mutex = CreateMutex(NULL, FALSE, NULL);
 	pseudo_mutex = CreateMutex(NULL, FALSE, NULL);
@@ -203,8 +225,8 @@ int main(void)
 	while (true) {
 		sockaddr_in sinRemote;
 		int nAddrSize = sizeof(sinRemote);
-		// Create a SOCKET for accepting incoming requests.
-		// Accept the connection.
+		// Creer un socket qui accepte les requetes des clients.
+		// Accepter la connexion.
 		SOCKET sd = accept(ServerSocket, (sockaddr*)&sinRemote, &nAddrSize);
 		if (sd != INVALID_SOCKET) {
 			cout << "Connection acceptee de : " <<
@@ -226,10 +248,11 @@ int main(void)
 		}
 		else {
 			cerr << WSAGetLastErrorMessage("Echec d'une connection.") << endl;
+			if (port != nullptr) delete port;
 			return 1;
 		}
 	}
-
+	if (port != nullptr) delete port;
 	return 0;
 }
 
@@ -243,6 +266,9 @@ DWORD WINAPI connectionHandler(void* sd_)
 {
 	SOCKET sd = (SOCKET)sd_;
 	UserInfo* usr = pseudonymes[sd];
+	// Retrouver la date et l'heure.
+	string* date = new string; // Supprimer la date;
+	string* time = new string; // Supprimer la time;
 
 	while (true)
 	{
@@ -252,25 +278,24 @@ DWORD WINAPI connectionHandler(void* sd_)
 
 		readBytes = recv(sd, readBuffer, TAILLE_MAX_MESSAGES, 0);
 		if (readBytes > 0) {
-			// Get date and time
-			string* date = new string; // delete date;
-			string* time = new string; // delete time;
 			comm.getDateTime(date, time);
 
-			// Format message with header
+			// Format du message avec en-tete
 			char msgFormatte[TAILLE_MAX_MESSAGES];
 			string header = comm.createChatMsgInfoHeader(usr->username, usr->ip, usr->port, *date, *time);
 			string contenu = comm.getContentFromChatMsg(readBuffer);
 			comm.createChatMsgEcho(header, contenu, msgFormatte);
 			
-			// Add to DB and broadcast
+			// Ajouter a la DB et diffuser
 			string* msgEchoContent = new string;
 			if (!comm.getEchoFromMsg(msgEchoContent, msgFormatte)) {
-				// Error: not an echo message
-				cerr << "Error : not an echo message." << endl;
+				// Erreur : Ce n'est pas un message de type echo.
+				cerr << "Erreur : Ce n'est pas un message de type echo." << endl;
+				if (date != nullptr) delete date;
+				if (time != nullptr) delete time;
 				return 1;
 			}
-			db.addMessage(&((*msgEchoContent)[0]));
+			db.ajoutMessage(&((*msgEchoContent)[0]));
 			diffuser(msgFormatte, sd);
 		}
 		else if (readBytes == SOCKET_ERROR) {
@@ -278,6 +303,8 @@ DWORD WINAPI connectionHandler(void* sd_)
 			if (WSAGetLastError() == WSAECONNRESET)
 				break;
 		}
+		if (date != nullptr) delete date;
+		if (time != nullptr) delete time;
 	}
 
 	// Retrait de l'utilisateur dans la map
@@ -318,17 +345,17 @@ bool Authentifier(SOCKET sd)
 
 	// Extraction des informations d'authentification
 	if (!comm.getAuthentificationInfoFromRequest(readBuffer, pseudo, motPasse)) {
-		// Error
-		cerr << "Error: authentification." << endl;
+		// Erreur d'authentification
+		cerr << "Erreur: authentification." << endl;
 		return false;
 	}
 
 	// Verifie dans la bd si le pseudonyme et le mot de passe sont corrects; determine le type de retour.
-	bool userExists = db.isExistingUser(*pseudo);
+	bool userExists = db.estUsagerExistant(*pseudo);
 	bool isValidUserInfo;
 	if (userExists) {
 		// Utilisateur existe, verification du mot de passe
-		isValidUserInfo = db.isValidPassword(*pseudo, *motPasse);
+		isValidUserInfo = db.estMotPasseValide(*pseudo, *motPasse);
 		if (isValidUserInfo) {
 			// Mot de passe valide
 			rep = AuthentificationRep::Acceptation;
@@ -343,7 +370,7 @@ bool Authentifier(SOCKET sd)
 
 	// Si le type est creation on ajoute a la bd (acces sans mutex, table des pseudos).
 	if (rep == AuthentificationRep::Creation) {
-		db.createUser(*pseudo, *motPasse);
+		db.creerUsager(*pseudo, *motPasse);
 	}
 
 	// Obtention des informations de connexion du client concerne.
@@ -380,7 +407,7 @@ bool Authentifier(SOCKET sd)
 		envoyer(authReplyMsg, sd);
 
 		// On envoie le nombre de messages dans l'historique.
-		vector<string> msgHist = db.getMessageHistory();
+		vector<string> msgHist = db.getHistoriqueMessages();
 		int nbMsgHist = msgHist.size();
 
 		char histNbMsg[TAILLE_MAX_MESSAGES];
@@ -418,8 +445,7 @@ bool Authentifier(SOCKET sd)
 * \return success.
 */
 bool createServerSocket(char* host, int* port) {
-	//----------------------
-	// Initialize Winsock.
+	// Initialiser Winsock.
 	WSADATA wsaData;
 	int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (iResult != NO_ERROR) {
@@ -428,8 +454,7 @@ bool createServerSocket(char* host, int* port) {
 	}
 
 	//----------------------
-	// Create a SOCKET for listening for
-	// incoming connection requests.
+	// Creer un socket pour ecouter les requetes de connexion.
 	ServerSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (ServerSocket == INVALID_SOCKET) {
 		cerr << WSAGetLastErrorMessage("Error at socket()") << endl;
@@ -440,8 +465,7 @@ bool createServerSocket(char* host, int* port) {
 	setsockopt(ServerSocket, SOL_SOCKET, SO_REUSEADDR, option, sizeof(option));
 
 	//----------------------
-	// The sockaddr_in structure specifies the address family,
-
+	// La structure sockaddr_in specifie la famille d'adresse.
 	//Recuperation de l'adresse locale
 	hostent* thisHost;
 	thisHost = gethostbyname(host);
@@ -450,8 +474,6 @@ bool createServerSocket(char* host, int* port) {
 	printf("Adresse locale trouvee : %s\n", ip);
 	sockaddr_in service;
 	service.sin_family = AF_INET;
-	//service.sin_addr.s_addr = inet_addr("127.0.0.1");
-	//	service.sin_addr.s_addr = INADDR_ANY;
 	service.sin_addr.s_addr = inet_addr(ip);
 	service.sin_port = htons(*port);
 
@@ -463,8 +485,7 @@ bool createServerSocket(char* host, int* port) {
 	}
 
 	//----------------------
-	// Listen for incoming connection requests.
-	// on the created socket
+	// Verifier si on est capable d'ecouter sur un socket.
 	if (listen(ServerSocket, 30) == SOCKET_ERROR) {
 		cerr << WSAGetLastErrorMessage("Error listening on socket.") << endl;
 		closesocket(ServerSocket);

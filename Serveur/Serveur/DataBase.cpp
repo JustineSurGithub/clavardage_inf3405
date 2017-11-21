@@ -1,17 +1,26 @@
+/**
+* Fichier : DataBase.cpp
+* Cette classe est responsable des acces aux fichiers de donnees et d'usagers.
+* Christophe Bourque Bedard, Justine Pepin
+* 2017/11/20
+*/
 #include <fstream>
 #include <queue>
 
 #include "DataBase.h"
 
-#define MAX_HISTORY_SIZE 16
+/* L'historique retourné doit contenir les 15 derniers messages.
+*  Les fichiers .txt ont une ligne vide avec eof donc on met 16.
+*/
+#define TAILLE_MAX_HISTORIQUE 16
 
 /**
 * Constructeur : cree les mutexes.
 */
 DataBase::DataBase()
 {
-	mutex_usagers_ = CreateMutex(NULL, FALSE, NULL);
-	mutex_messages_ = CreateMutex(NULL, FALSE, NULL);
+	mutexUsagers_ = CreateMutex(NULL, FALSE, NULL);
+	mutexMessages_ = CreateMutex(NULL, FALSE, NULL);
 }
 
 /**
@@ -35,23 +44,23 @@ DataBase::~DataBase()
 * \param username nom d'utilisateur.
 * \return resultat.
 */
-bool DataBase::isExistingUser(const string& username) {
+bool DataBase::estUsagerExistant(const string& pseudonyme) {
 	// Regarder si l'un des noms des utilisateurs correspond a celui passe en parametre
-	string line;
-	ouvertureFichierLecture(FICHIER_USAGERS_, mutex_usagers_);
+	string ligne;
+	ouvertureFichierLecture(FICHIER_USAGERS_, mutexUsagers_);
 	while (!memUsagers_.eof())
 	{
 		// Lire un nom d'usager
-		getline(memUsagers_, line);
-		if (line == username)
+		getline(memUsagers_, ligne);
+		if (ligne == pseudonyme)
 		{
-			fermetureFichier(FICHIER_USAGERS_, mutex_usagers_);
+			fermetureFichier(FICHIER_USAGERS_, mutexUsagers_);
 			return true;
 		}
 		// Lire un mot de passe 
-		getline(memUsagers_, line);
+		getline(memUsagers_, ligne);
 	}
-	fermetureFichier(FICHIER_USAGERS_, mutex_usagers_);
+	fermetureFichier(FICHIER_USAGERS_, mutexUsagers_);
 	return false;
 }
 
@@ -62,32 +71,32 @@ bool DataBase::isExistingUser(const string& username) {
 * \param password mot de passe.
 * \return resultat.
 */
-bool DataBase::isValidPassword(const string& username, const string& password) {
+bool DataBase::estMotPasseValide(const string& pseudonyme, const string& motPasse) {
 	// Regarder si l'un des noms des utilisateurs correspond a celui passe en parametre.
 	// Si oui, regarder si le mot de passe correspond egalement.
-	string line;
-	ouvertureFichierLecture(FICHIER_USAGERS_, mutex_usagers_);
+	string ligne;
+	ouvertureFichierLecture(FICHIER_USAGERS_, mutexUsagers_);
 	while (!memUsagers_.eof())
 	{
 		// Lire un nom d'usager et verifier la correspondance.
-		getline(memUsagers_, line);
-		if (line == username)
+		getline(memUsagers_, ligne);
+		if (ligne == pseudonyme)
 		{
 			// Verifier si les mots de passe correspondent aussi.
-			getline(memUsagers_, line);
-			if (line == password)
+			getline(memUsagers_, ligne);
+			if (ligne == motPasse)
 			{
-				fermetureFichier(FICHIER_USAGERS_, mutex_usagers_);
+				fermetureFichier(FICHIER_USAGERS_, mutexUsagers_);
 				return true;
 			}
 		}
 		else 
 		{
 			// Lire un mot de passe 
-			getline(memUsagers_, line);
+			getline(memUsagers_, ligne);
 		}
 	}
-	fermetureFichier(FICHIER_USAGERS_, mutex_usagers_);
+	fermetureFichier(FICHIER_USAGERS_, mutexUsagers_);
 	return false;
 }
 
@@ -97,11 +106,11 @@ bool DataBase::isValidPassword(const string& username, const string& password) {
 * \param username nom d'utilisateur.
 * \param password mot de passe.
 */
-void DataBase::createUser(const string& username, const string& password) {
+void DataBase::creerUsager(const string& pseudonyme, const string& motPasse) {
 	// Ecrire le nom d'usager sur une ligne puis le mot de passe.
-	ouvertureFichierEcriture(FICHIER_USAGERS_, mutex_usagers_);
-	memUsagers_ << username << endl << password << endl;
-	fermetureFichier(FICHIER_USAGERS_, mutex_usagers_);
+	ouvertureFichierEcriture(FICHIER_USAGERS_, mutexUsagers_);
+	memUsagers_ << pseudonyme << endl << motPasse << endl;
+	fermetureFichier(FICHIER_USAGERS_, mutexUsagers_);
 }
 
 /**
@@ -109,32 +118,32 @@ void DataBase::createUser(const string& username, const string& password) {
 *
 * \return derniers messages (max 15).
 */
-vector<string> DataBase::getMessageHistory() {
+vector<string> DataBase::getHistoriqueMessages() {
 	// Differents buffers de lecture
-	string line;
-	vector<string> msgHistory;
+	string ligne;
+	vector<string> historiqueMsg;
 	queue<string> derniersMsg;
 	// Lire les derniers messages
-	ouvertureFichierLecture(FICHIER_DONNEES_, mutex_messages_);
+	ouvertureFichierLecture(FICHIER_DONNEES_, mutexMessages_);
 	while (!memMessages_.eof())
 	{
 		// Lire un message et le mettre dans la queue
-		getline(memMessages_, line);
-		if (derniersMsg.size() == MAX_HISTORY_SIZE)
+		getline(memMessages_, ligne);
+		if (derniersMsg.size() == TAILLE_MAX_HISTORIQUE)
 		{
 			derniersMsg.pop();
 		}
-		derniersMsg.push(line);
+		derniersMsg.push(ligne);
 	}
-	fermetureFichier(FICHIER_DONNEES_, mutex_messages_);
+	fermetureFichier(FICHIER_DONNEES_, mutexMessages_);
 	unsigned int tailleHistorique = derniersMsg.size();
 	for (unsigned int i = 0; i < tailleHistorique - 1; ++i) 
 	{
-		msgHistory.push_back(derniersMsg.front());
+		historiqueMsg.push_back(derniersMsg.front());
 		derniersMsg.pop();
 	}
 
-	return msgHistory;
+	return historiqueMsg;
 }
 
 /**
@@ -142,12 +151,12 @@ vector<string> DataBase::getMessageHistory() {
 *
 * \param msg message a ajouter.
 */
-void DataBase::addMessage(char* msg) {
-	string msg_str(msg);
+void DataBase::ajoutMessage(char* msg) {
+	string msgString(msg);
 	// acces avec mutex; enregistrement de la donnee dans bd. 
-	ouvertureFichierEcriture(FICHIER_DONNEES_, mutex_messages_);
-	memMessages_ << msg_str << endl;
-	fermetureFichier(FICHIER_DONNEES_, mutex_messages_);
+	ouvertureFichierEcriture(FICHIER_DONNEES_, mutexMessages_);
+	memMessages_ << msgString << endl;
+	fermetureFichier(FICHIER_DONNEES_, mutexMessages_);
 }
 
 /**
