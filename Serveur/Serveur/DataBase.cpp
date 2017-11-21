@@ -44,7 +44,8 @@ DataBase::~DataBase()
 * \param username nom d'utilisateur.
 * \return resultat.
 */
-bool DataBase::estUsagerExistant(const string& pseudonyme) {
+bool DataBase::estUsagerExistant(const string& pseudonyme)
+{
 	// Regarder si l'un des noms des utilisateurs correspond a celui passe en parametre
 	string ligne;
 	ouvertureFichierLecture(FICHIER_USAGERS_, mutexUsagers_);
@@ -71,7 +72,8 @@ bool DataBase::estUsagerExistant(const string& pseudonyme) {
 * \param password mot de passe.
 * \return resultat.
 */
-bool DataBase::estMotPasseValide(const string& pseudonyme, const string& motPasse) {
+bool DataBase::estMotPasseValide(const string& pseudonyme, const string& motPasse)
+{
 	// Regarder si l'un des noms des utilisateurs correspond a celui passe en parametre.
 	// Si oui, regarder si le mot de passe correspond egalement.
 	string ligne;
@@ -106,7 +108,8 @@ bool DataBase::estMotPasseValide(const string& pseudonyme, const string& motPass
 * \param username nom d'utilisateur.
 * \param password mot de passe.
 */
-void DataBase::creerUsager(const string& pseudonyme, const string& motPasse) {
+void DataBase::creerUsager(const string& pseudonyme, const string& motPasse)
+{
 	// Ecrire le nom d'usager sur une ligne puis le mot de passe.
 	ouvertureFichierEcriture(FICHIER_USAGERS_, mutexUsagers_);
 	memUsagers_ << pseudonyme << endl << motPasse << endl;
@@ -118,7 +121,8 @@ void DataBase::creerUsager(const string& pseudonyme, const string& motPasse) {
 *
 * \return derniers messages (max 15).
 */
-vector<string> DataBase::getHistoriqueMessages() {
+vector<string> DataBase::getHistoriqueMessages()
+{
 	// Differents buffers de lecture
 	string ligne;
 	vector<string> historiqueMsg;
@@ -151,7 +155,8 @@ vector<string> DataBase::getHistoriqueMessages() {
 *
 * \param msg message a ajouter.
 */
-void DataBase::ajoutMessage(char* msg) {
+void DataBase::ajoutMessage(char* msg)
+{
 	string msgString(msg);
 	// acces avec mutex; enregistrement de la donnee dans bd. 
 	ouvertureFichierEcriture(FICHIER_DONNEES_, mutexMessages_);
@@ -165,7 +170,8 @@ void DataBase::ajoutMessage(char* msg) {
 * \param nom du fichier a ouvrir.
 * \param mutex protegeant le fichier.
 */
-void DataBase::ouvertureFichierLecture(string nomFichier, HANDLE mutex) {
+void DataBase::ouvertureFichierLecture(string nomFichier, HANDLE mutex)
+{
 	WaitForSingleObject(mutex, INFINITE);
 	if (nomFichier == FICHIER_DONNEES_)
 	{
@@ -197,7 +203,8 @@ void DataBase::ouvertureFichierLecture(string nomFichier, HANDLE mutex) {
 * \param nom du fichier a ouvrir.
 * \param mutex protegeant le fichier.
 */
-void DataBase::ouvertureFichierEcriture(string nomFichier, HANDLE mutex) {
+void DataBase::ouvertureFichierEcriture(string nomFichier, HANDLE mutex)
+{
 	WaitForSingleObject(mutex, INFINITE);
 	if (nomFichier == FICHIER_DONNEES_)
 	{
@@ -225,7 +232,8 @@ void DataBase::ouvertureFichierEcriture(string nomFichier, HANDLE mutex) {
 * \param nom du fichier a fermer.
 * \param mutex protegeant le fichier.
 */
-void DataBase::fermetureFichier(string nomFichier, HANDLE mutex) {
+void DataBase::fermetureFichier(string nomFichier, HANDLE mutex)
+{
 	if (nomFichier == FICHIER_DONNEES_)
 	{
 		memMessages_.close();
