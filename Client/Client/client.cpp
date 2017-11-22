@@ -22,15 +22,14 @@
 
 using namespace std;
 
-
-// Function prototypes
+/* Prototypes de fonction */
 bool createSocket(char* host, char* port);
 void endConnection();
-DWORD WINAPI receiveMessages(void* sd_);
-DWORD WINAPI sendMessages(void* sd_);
-string readPassword(const string& prompt);
+DWORD WINAPI recevoirMessages(void* sd_);
+DWORD WINAPI envoyerMessages(void* sd_);
+string lireMotDePasse(const string& message);
 
-// Socket stuff
+/* Informations pour le socket */
 WSADATA wsaData;
 SOCKET leSocket;// = INVALID_SOCKET;
 struct addrinfo *result = NULL,
@@ -38,14 +37,19 @@ struct addrinfo *result = NULL,
 				hints;
 int iResult;
 
+/* Mutex pour le socket */
 HANDLE socket_mutex = CreateMutex(NULL, FALSE, NULL);
 
-bool doQuit = false;
-HANDLE quit_mutex = CreateMutex(NULL, FALSE, NULL);
-
+/* Communications */
 Communications comm;
 
-
+/*
+* La fonction principale du client cree le client et autres objets du client.
+* Elle lit les informations de connexion (port, hote) et cree le socket pour la communication avec le serveur.
+* Elle lit ensuite les informations de l'utilisateur (nom d'utilisateur, mot de passe) et les envoit au serveur.
+* Si l'authentification est acceptee, elle lit les messages a envoyer et cree un thread pour recevoir d'autres messages.
+* Sinon, on ferme le client.
+*/
 int __cdecl main(int argc, char **argv)
 {
 	SetConsoleTitle("Client de clavardage");
@@ -72,7 +76,7 @@ int __cdecl main(int argc, char **argv)
 	string username, password;
 	cout << "Entrez votre nom d'utilisateur : ";
 	getline(cin, username);
-	password = readPassword("Entrez votre mot de passe : ");
+	password = lireMotDePasse("Entrez votre mot de passe : ");
 
 	// Envoyer la requete d'authentification au serveur
 	char authRequest[TAILLE_MAX_MESSAGES];
@@ -150,10 +154,10 @@ int __cdecl main(int argc, char **argv)
 
 	// Creer thread pour recevoir les messages
 	DWORD nThreadID;
-	CreateThread(0, 0, receiveMessages, (void*)leSocket, 0, &nThreadID);
+	CreateThread(0, 0, recevoirMessages, (void*)leSocket, 0, &nThreadID);
 
 	// Envoyer les messages
-	sendMessages((void*)leSocket);
+	envoyerMessages((void*)leSocket);
 
 	// Fin
 	endConnection();
@@ -167,17 +171,12 @@ int __cdecl main(int argc, char **argv)
 * \param sd_ pointeur vers le socket.
 * \return success.
 */
-DWORD WINAPI receiveMessages(void* sd_) {
+DWORD WINAPI recevoirMessages(void* sd_) {
 	SOCKET sd = (SOCKET)sd_;
 
 	while (true) {
-		//WaitForSingleObject(quit_mutex, INFINITE);
-		//if (doQuit) return 0;
-		//ReleaseMutex(quit_mutex);
-
 		// Obtenir le message
 		char msgEcho[TAILLE_MAX_MESSAGES];
-		WaitForSingleObject(socket_mutex, INFINITE);
 		iResult = recv(sd, msgEcho, TAILLE_MAX_MESSAGES, 0);
 		if (iResult > 0) {
 			msgEcho[iResult - 1] = '\0';
@@ -190,7 +189,6 @@ DWORD WINAPI receiveMessages(void* sd_) {
 			}
 			return 1;
 		}
-		ReleaseMutex(socket_mutex);
 
 		// Extraire le contenu
 		string msgEchoContent;
@@ -212,7 +210,7 @@ DWORD WINAPI receiveMessages(void* sd_) {
 * \param sd_ pointeur vers le socket.
 * \return success.
 */
-DWORD WINAPI sendMessages(void* sd_) {
+DWORD WINAPI envoyerMessages(void* sd_) {
 	SOCKET sd = (SOCKET)sd_;
 
 	// Lecture et envoit de messages a volonte
@@ -221,16 +219,15 @@ DWORD WINAPI sendMessages(void* sd_) {
 		char msg[TAILLE_MAX_MESSAGES];
 		comm.createChatMsg(chatMsg, msg);
 
-		//WaitForSingleObject(socket_mutex, INFINITE);
 		iResult = send(leSocket, msg, TAILLE_MAX_MESSAGES, 0);
 		if (iResult == SOCKET_ERROR) {
 			printf("Erreur du send: %d\n", WSAGetLastError());
 			endConnection();
+			//ReleaseMutex(socket_mutex);
 			printf("Appuyez une touche pour finir\n");
 			getchar();
 			return 1;
 		}
-		//ReleaseMutex(socket_mutex);
 		chatMsg = comm.inputChatMessage();
 	}
 
@@ -238,21 +235,29 @@ DWORD WINAPI sendMessages(void* sd_) {
 }
 
 /**
-* Lecture d'un password avec remplacement des characteres par des *.
+* Lecture d'un mot de passe sans l'afficher.
 *
-* \param password entre.
+* \param message message d'entre du mot de passe.
+* \return mot de passe.
 */
-string readPassword(const string& prompt) {
+string lireMotDePasse(const string& message) {
 	string pass;
-	char ch;
-	cout << prompt;
-	ch = _getch();
-	while (ch != '\r') {
-		pass.push_back(ch);
-		cout << '*';
-		ch = _getch();
-	}
-	cout << endl;
+
+	// Cacher l'echo dans la console
+	HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+	DWORD mode;
+	GetConsoleMode(hStdin, &mode);
+	mode &= ~ENABLE_ECHO_INPUT;
+	SetConsoleMode(hStdin, mode);
+	
+	// Lire mot de passe
+	cout << message;
+	getline(cin, pass);
+
+	// Re-activation echo
+	mode |= ENABLE_ECHO_INPUT;
+	SetConsoleMode(hStdin, mode);
+
 	return pass;
 }
 
