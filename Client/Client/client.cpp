@@ -265,10 +265,13 @@ int __cdecl main(int argc, char **argv)
 	}
 
 	// Nom d'utilisateur et mot de passe
-	string username, password;
-	cout << "Entrez votre nom d'utilisateur : ";
-	getline(cin, username);
-	password = readPassword("Entrez votre mot de passe : ");
+	string username = "";
+	// Verifier que le nom d'utilisateur n'est pas vide
+	while (username.empty()) {
+		cout << "Entrez votre nom d'utilisateur : ";
+		getline(cin, username);
+	}
+	string password = readPassword("Entrez votre mot de passe : ");
 
 	// Envoyer la requete d'authentification au serveur
 	char authRequest[TAILLE_MAX_MESSAGES];
