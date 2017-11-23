@@ -1,12 +1,6 @@
 mickey
 mouse
-me
-yes
-ooko
-ll
 christophe
 lemotdepassedechristophe
-c
-s
 newuser
 password
