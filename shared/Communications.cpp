@@ -1,3 +1,10 @@
+/**
+* Fichier : Communications.cpp
+* Ce fichier contient des fonctions qui verifient la validite des echanges
+* et qui facilitent la communication entre le client et le serveur.
+* Christophe Bourque Bedard, Justine Pepin
+* 2017/11/20
+*/
 #pragma warning(disable:4996) // warnings when using std::string::copy
 
 #include "Communications.h"

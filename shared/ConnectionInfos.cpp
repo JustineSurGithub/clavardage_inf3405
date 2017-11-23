@@ -1,3 +1,10 @@
+/**
+* Fichier : ConnectionsInfos.cpp
+* Ce fichier contient des fonctions qui permettent de verifier les
+* informations en lien avec le port et l'adresse hote.
+* Christophe Bourque Bedard, Justine Pepin
+* 2017/11/20
+*/
 #pragma warning(disable:4996) // warnings when using std::string::copy
 
 #include "ConnectionInfos.h"
@@ -186,5 +193,4 @@ bool ConnectionInfos::is_number(const std::string &s) {
 		}
 	}
 	return res;
-	//return !s.empty() && std::all_of(s.begin(), s.end(), ::isdigit);
 }

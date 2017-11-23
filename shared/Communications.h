@@ -1,3 +1,10 @@
+/**
+* Fichier : Communications.h
+* Ce fichier contient des fonctions qui verifient la validite des echanges
+* et qui facilitent la communication entre le client et le serveur.
+* Christophe Bourque Bedard, Justine Pepin
+* 2017/11/20
+*/
 #pragma once
 
 #include <iostream>
@@ -19,7 +26,7 @@ public:
 	~Communications();
 
 	enum TypeMessage {
-		// Mauvais idee d'utiliser des char qui sont dans l'extended set (>127)
+		// Mauvaise idee d'utiliser des char qui sont dans l'extended set (>127)
 		PASSWORD_SEPARATOR = (char)219,		// Separateur entre username et mot de passe
 		AUTHENTIFICATION_REQUEST,			// Requete d'authentification
 		AUTHENTIFICATION_REPLY,				// Reponse d'authentification

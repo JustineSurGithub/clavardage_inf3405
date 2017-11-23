@@ -22,13 +22,13 @@ using namespace std;
 /* Prototypes de fonction */
 const char* WSAGetLastErrorMessage(const char* pcMessagePrefix, int nErrorID = 0);
 bool creerServeurSocket(char* hote, int* port);
-DWORD WINAPI connectionHandler(void* sd_);
+DWORD WINAPI gestionnaireDeConnection(void* sd_);
 bool estUsagerDejaConnecte(string pseudonyme);
 void envoyer(char* msg, SOCKET sd);
 void diffuser(char* msg, SOCKET s);
 bool Authentifier(SOCKET sd);
 
-/* Enum qui tient compte des differentes issues possibles a l'autentification */
+/* Enum qui tient compte des differentes issues possibles a l'authentification */
 enum AuthentificationRep
 {
 	Acceptation,
@@ -64,7 +64,7 @@ SOCKET ServerSocket;
 /**
 * Creation du socket.
 *
-* \param host pointeur vers l'adresse IP de l'hote.
+* \param hote pointeur vers l'adresse IP de l'hote.
 * \param port pointeur vers le port.
 * \return success.
 */
@@ -132,43 +132,43 @@ bool creerServeurSocket(char* hote, int* port)
 * \param sd pointeur vers socket.
 * \return success.
 */
-DWORD WINAPI connectionHandler(void* sd_)
+DWORD WINAPI gestionnaireDeConnection(void* sd_)
 {
 	SOCKET sd = (SOCKET)sd_;
 	UserInfo* usr = pseudonymes[sd];
 	// Retrouver la date et l'heure.
 	string date;
-	string time;
+	string temps;
 
 	while (true)
 	{
 		// Le serveur lit ce que le client lui envoie.
-		char readBuffer[TAILLE_MAX_MESSAGES];
-		int readBytes;
+		char tamponLecture[TAILLE_MAX_MESSAGES];
+		int octetsLus;
 
-		readBytes = recv(sd, readBuffer, TAILLE_MAX_MESSAGES, 0);
-		if (readBytes > 0)
+		octetsLus = recv(sd, tamponLecture, TAILLE_MAX_MESSAGES, 0);
+		if (octetsLus > 0)
 		{
-			comm.getDateTime(date, time);
+			comm.getDateTime(date, temps);
 
 			// Format du message avec en-tete
 			char msgFormatte[TAILLE_MAX_MESSAGES];
-			string header = comm.createChatMsgInfoHeader(usr->username, usr->ip, usr->port, date, time);
-			string contenu = comm.getContentFromChatMsg(readBuffer);
-			comm.createChatMsgEcho(header, contenu, msgFormatte);
+			string entete = comm.createChatMsgInfoHeader(usr->username, usr->ip, usr->port, date, temps);
+			string contenu = comm.getContentFromChatMsg(tamponLecture);
+			comm.createChatMsgEcho(entete, contenu, msgFormatte);
 
 			// Ajouter a la DB et diffuser
-			string msgEchoContent;
-			if (!comm.getEchoFromMsg(msgEchoContent, msgFormatte))
+			string msgContenuEcho;
+			if (!comm.getEchoFromMsg(msgContenuEcho, msgFormatte))
 			{
 				// Erreur : Ce n'est pas un message de type echo.
 				cerr << "Erreur : Ce n'est pas un message de type echo." << endl;
 				return 1;
 			}
-			db.ajoutMessage(&(msgEchoContent[0]));
+			db.ajoutMessage(&(msgContenuEcho[0]));
 			diffuser(msgFormatte, sd);
 		}
-		else if (readBytes == SOCKET_ERROR)
+		else if (octetsLus == SOCKET_ERROR)
 		{
 			cerr << WSAGetLastErrorMessage("Echec de la reception!") << endl;
 			if (WSAGetLastError() == WSAECONNRESET)
@@ -258,21 +258,21 @@ bool Authentifier(SOCKET sd)
 	AuthentificationRep rep;
 
 	// Attend le pseudonyme et le mot de passe du client
-	char readBuffer[TAILLE_MAX_MESSAGES];
-	int readBytes;
+	char tamponLecture[TAILLE_MAX_MESSAGES];
+	int octetsLus;
 	string* pseudo = new string;
 	string* motPasse = new string;
 
 	// Reception des informations d'authentification
-	readBytes = recv(sd, readBuffer, TAILLE_MAX_MESSAGES, 0);
-	if (readBytes <= 0)
+	octetsLus = recv(sd, tamponLecture, TAILLE_MAX_MESSAGES, 0);
+	if (octetsLus <= 0)
 	{
 		rep = AuthentificationRep::Refus;
 		return false;
 	}
 
 	// Extraction des informations d'authentification
-	if (!comm.getAuthentificationInfoFromRequest(readBuffer, pseudo, motPasse))
+	if (!comm.getAuthentificationInfoFromRequest(tamponLecture, pseudo, motPasse))
 	{
 		// Erreur d'authentification
 		cerr << "Erreur: authentification." << endl;
@@ -280,13 +280,13 @@ bool Authentifier(SOCKET sd)
 	}
 
 	// Verifie dans la bd si le pseudonyme et le mot de passe sont corrects; determine le type de retour.
-	bool userExists = db.estUsagerExistant(*pseudo);
-	bool isValidUserInfo;
-	if (userExists)
+	bool usagerExistant = db.estUsagerExistant(*pseudo);
+	bool estUsagerValide;
+	if (usagerExistant)
 	{
 		// Utilisateur existe, verification du mot de passe
-		isValidUserInfo = db.estMotPasseValide(*pseudo, *motPasse);
-		if (isValidUserInfo)
+		estUsagerValide = db.estMotPasseValide(*pseudo, *motPasse);
+		if (estUsagerValide)
 		{
 			// Mot de passe valide
 			rep = AuthentificationRep::Acceptation;
@@ -321,14 +321,14 @@ bool Authentifier(SOCKET sd)
 	if (pseudo != nullptr) delete motPasse;
 
 	// Verifier si utilisateur est avec le meme username est deja connecte!
-	bool isAlreadyConnected = estUsagerDejaConnecte(usr->username);
+	bool estDejaConnecte = estUsagerDejaConnecte(usr->username);
 
 	// Creation du message de reponse
-	char authReplyMsg[TAILLE_MAX_MESSAGES];
-	bool successAuth = (rep == AuthentificationRep::Acceptation || rep == AuthentificationRep::Creation) && !isAlreadyConnected;
-	comm.createAuthentificationReplyMsg(successAuth, isValidUserInfo, authReplyMsg);
+	char msgRepAuthen[TAILLE_MAX_MESSAGES];
+	bool succesAuthen = (rep == AuthentificationRep::Acceptation || rep == AuthentificationRep::Creation) && !estDejaConnecte;
+	comm.createAuthentificationReplyMsg(succesAuthen, estUsagerValide, msgRepAuthen);
 
-	if (successAuth)
+	if (succesAuthen)
 	{
 		// On met la struct dans la map des pseudos (acces avec mutex).
 		WaitForSingleObject(pseudoMutex, INFINITE);
@@ -346,7 +346,7 @@ bool Authentifier(SOCKET sd)
 		}
 
 		// Envoit du message de reponse
-		envoyer(authReplyMsg, sd);
+		envoyer(msgRepAuthen, sd);
 
 		// On envoie le nombre de messages dans l'historique.
 		vector<string> msgHist = db.getHistoriqueMessages();
@@ -370,7 +370,7 @@ bool Authentifier(SOCKET sd)
 	else
 	{
 		// Affichage d'une notice de refus d'authentification sur le serveur
-		if (!isValidUserInfo)
+		if (!estUsagerValide)
 		{
 			cout << "Authentification de l'utilisateur " << usr->username << "@" << usr->ip << ":" << usr->port << " refusee : mauvais mot de passe." << endl;
 		}
@@ -380,7 +380,7 @@ bool Authentifier(SOCKET sd)
 		}
 
 		// Envoit du message de refus
-		envoyer(authReplyMsg, sd);
+		envoyer(msgRepAuthen, sd);
 		return false;
 	}
 }
@@ -423,24 +423,24 @@ int main(void)
 	while (true)
 	{
 		sockaddr_in sinRemote;
-		int nAddrSize = sizeof(sinRemote);
+		int tailleNAdresse = sizeof(sinRemote);
 		// Creer un socket qui accepte les requetes des clients.
 		// Accepter la connexion.
-		SOCKET sd = accept(ServerSocket, (sockaddr*)&sinRemote, &nAddrSize);
+		SOCKET sd = accept(ServerSocket, (sockaddr*)&sinRemote, &tailleNAdresse);
 		if (sd != INVALID_SOCKET)
 		{
 			cout << "Connection acceptee de : " <<
 					inet_ntoa(sinRemote.sin_addr) << ":" <<
 					ntohs(sinRemote.sin_port) << "." <<
 					endl;
-			bool isAuthValid = Authentifier(sd);
-			if (isAuthValid)
+			bool estAuthenValide = Authentifier(sd);
+			if (estAuthenValide)
 			{
 				WaitForSingleObject(socketMutex, INFINITE);
 				sockets.push_back(sd);
 				ReleaseMutex(socketMutex);
 				DWORD nThreadID;
-				CreateThread(0, 0, connectionHandler, (void*)sd, 0, &nThreadID);
+				CreateThread(0, 0, gestionnaireDeConnection, (void*)sd, 0, &nThreadID);
 			}
 			else
 			{

@@ -1,3 +1,10 @@
+/**
+* Fichier : ConnectionsInfos.h
+* Ce fichier contient des fonctions qui permettent de verifier les
+* informations en lien avec le port et l'adresse hote.
+* Christophe Bourque Bedard, Justine Pepin
+* 2017/11/20
+*/
 #pragma once
 
 #include <iostream>
